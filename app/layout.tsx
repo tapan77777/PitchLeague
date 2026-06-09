@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Bebas_Neue } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
+const bebasNeue = Bebas_Neue({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-bebas',
+})
 
 export const metadata: Metadata = {
   title: 'PitchLeague — FIFA 2026 Prediction Leagues',
@@ -11,7 +16,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#09090b',
+  themeColor: '#0a0a0a',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -20,7 +25,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-zinc-950 text-white antialiased`}>
+      <body className={`${inter.className} ${bebasNeue.variable} bg-[#0a0a0a] text-white antialiased`}>
         {children}
       </body>
     </html>

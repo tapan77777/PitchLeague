@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getOrCreateMemberId, hasJoinedLeague } from '@/lib/member'
-import { getLeagueThemeVars, getLeagueShareUrl } from '@/lib/utils'
+import { getLeagueShareUrl } from '@/lib/utils'
 import { League, Badge, LeaderboardEntry } from '@/types'
-import LeaderboardRow from '@/components/shared/LeaderboardRow'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
 import { Copy, Check } from 'lucide-react'
 
@@ -33,8 +32,7 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
   }, [slug, router])
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true); setError('')
     try {
       const leagueRes = await supabase.from('leagues').select('*').eq('slug', slug).maybeSingle()
       if (!leagueRes.data) { setError('league_not_found'); setLoading(false); return }
@@ -67,137 +65,141 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
       }))
 
       setData({ league: leagueRes.data, entries, matchesPlayed: matchCountRes.count ?? 0 })
-
     } catch (err) {
-      console.error('[play leaderboard]', err)
-      setError('fetch_failed')
+      console.error('[play leaderboard]', err); setError('fetch_failed')
     } finally {
       setLoading(false)
     }
   }, [slug])
 
-  useEffect(() => {
-    if (memberId) fetchData()
-  }, [memberId, fetchData])
+  useEffect(() => { if (memberId) fetchData() }, [memberId, fetchData])
 
   async function copyInviteLink() {
     if (!data) return
     await navigator.clipboard.writeText(getLeagueShareUrl(data.league.slug))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
 
   if (loading || !memberId) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="w-7 h-7 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-5 text-center">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-5 text-center">
         <span className="text-4xl mb-4">⚠️</span>
         <p className="text-zinc-400 text-sm mb-4">Failed to load leaderboard.</p>
         <button onClick={() => fetchData()}
-          className="bg-green-500 text-black font-bold px-5 py-2.5 rounded-full text-sm">Retry</button>
+          className="gold-gradient text-black font-bold px-5 py-2.5 rounded-full text-sm">Retry</button>
       </div>
     )
   }
 
   const { league, entries, matchesPlayed } = data
-  const primary = league.primary_color || '#16a34a'
-  const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
+  const primary = league.primary_color || '#c9a84c'
   const myEntry = entries.find(e => e.clerk_id === memberId)
-  const top3 = entries.slice(0, 3)
+  const top3 = entries.slice(0, Math.min(3, entries.length))
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white pb-24" style={themeVars}>
+    <div className="min-h-screen bg-[#0a0a0a] text-white pb-28">
 
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-zinc-950/95 backdrop-blur border-b border-zinc-900 px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2 min-w-0">
-            {league.logo_url
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
+        style={{ borderBottomColor: '#c9a84c22' }}>
+        <div className="flex items-center justify-between max-w-lg mx-auto w-full">
+          <div className="flex items-center gap-2">
+            {league.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={league.logo_url} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
-              : <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0"
-                  style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
-            }
-            <span className="font-bold text-sm truncate">{league.name}</span>
+              <img src={league.logo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+            ) : (
+              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black"
+                style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
+            )}
+            <span className="text-[11px] font-bold tracking-wider uppercase text-zinc-300 truncate max-w-[140px]">
+              {league.name}
+            </span>
           </div>
-          <div className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border"
-            style={{ color: primary, borderColor: primary + '44', backgroundColor: primary + '11' }}>
-            {matchesPlayed} {matchesPlayed === 1 ? 'match' : 'matches'} played
+          <div className="flex items-center gap-1">
+            <span className="text-sm">🏆</span>
+            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: '#c9a84c' }}>
+              FIFA 2026
+            </span>
+          </div>
+          <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
+            {matchesPlayed} played
           </div>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 pt-5 space-y-5">
+      <div className="max-w-lg mx-auto px-4 pt-5">
 
-        {/* My rank card */}
+        {/* ── My position card ── */}
         {myEntry && (
-          <div className="rounded-2xl border p-4" style={{ borderColor: primary, backgroundColor: primary + '18' }}>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: primary }}>
-              Your Position
+          <div className="rounded-xl border mb-6 p-4" style={{ borderColor: '#c9a84c44', backgroundColor: '#c9a84c0a' }}>
+            <p className="text-[9px] font-semibold tracking-widest uppercase mb-3" style={{ color: '#c9a84c' }}>
+              YOUR POSITION
             </p>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold border-2 shrink-0"
-                style={{ borderColor: primary + '66', backgroundColor: primary + '22', color: primary }}>
+              <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border-2"
+                style={{ borderColor: '#c9a84c55', backgroundColor: '#c9a84c11', color: '#c9a84c' }}>
                 {myEntry.display_name.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm text-white truncate">{myEntry.display_name}</p>
-                <p className="text-xs mt-0.5" style={{ color: primary }}>
-                  Rank #{myEntry.rank} of {entries.length}
+                <p className="font-bold text-sm text-[#f0f0f0] truncate">{myEntry.display_name}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: '#c9a84c' }}>
+                  #{myEntry.rank} of {entries.length}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-3xl font-black leading-none" style={{ color: primary }}>{myEntry.total_points}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">points</p>
+                <p className="fifa-score text-4xl leading-none" style={{ color: '#c9a84c' }}>{myEntry.total_points}</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">points</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Invite nudge */}
+        {/* ── Invite nudge ── */}
         {entries.length <= 1 && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center">
+          <div className="bg-[#161616] border border-[#222] rounded-xl p-6 text-center mb-6">
             <span className="text-4xl block mb-3">👀</span>
-            <p className="font-bold text-sm text-white mb-1">Invite more people!</p>
-            <p className="text-zinc-500 text-xs mb-4">Share the league link to get the competition going.</p>
+            <p className="font-bold text-sm text-white mb-1">Invite more players!</p>
+            <p className="text-zinc-500 text-xs mb-4">Share the link to start the competition.</p>
             <button onClick={copyInviteLink}
-              className="flex items-center gap-2 mx-auto font-semibold text-sm px-4 py-2.5 rounded-full border transition-colors"
-              style={{ color: copied ? '#000' : primary, borderColor: primary, backgroundColor: copied ? primary : primary + '11' }}>
+              className="flex items-center gap-2 mx-auto font-semibold text-sm px-5 py-2.5 rounded-full border transition-colors"
+              style={{ color: copied ? '#000' : '#c9a84c', borderColor: '#c9a84c',
+                backgroundColor: copied ? '#c9a84c' : 'transparent' }}>
               {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy invite link'}
             </button>
           </div>
         )}
 
-        {/* Podium */}
-        {top3.length >= 3 && (
-          <div>
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-4">Top 3</p>
-            <div className="flex items-end justify-center gap-3">
-              <PodiumSlot entry={top3[1]} place={2} />
-              <PodiumSlot entry={top3[0]} place={1} />
-              <PodiumSlot entry={top3[2]} place={3} />
+        {/* ── Podium ── */}
+        {top3.length >= 2 && (
+          <div className="mb-7">
+            <SectionHeader title="PODIUM" />
+            <div className="flex items-end justify-center gap-4 pt-2">
+              {top3[1] && <PodiumSlot entry={top3[1]} place={2} />}
+              {top3[0] && <PodiumSlot entry={top3[0]} place={1} />}
+              {top3[2] && <PodiumSlot entry={top3[2]} place={3} />}
             </div>
           </div>
         )}
 
-        {/* Full list */}
-        {entries.length > 1 && (
-          <div>
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">Full standings</p>
-            <div className="space-y-2">
+        {/* ── Full standings ── */}
+        {entries.length > 0 && (
+          <div className="mb-6">
+            <SectionHeader title="FULL STANDINGS" />
+            <div className="space-y-1.5">
               {entries.map(entry => (
-                <LeaderboardRow
+                <StandingsRow
                   key={entry.clerk_id}
                   entry={entry}
-                  isCurrentUser={entry.clerk_id === memberId}
+                  isMe={entry.clerk_id === memberId}
                 />
               ))}
             </div>
@@ -210,34 +212,83 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
   )
 }
 
+/* ─────────────────────────── Sub-components ─────────────────────────── */
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-[3px] h-5 rounded-full bg-[#c9a84c]" />
+      <span className="text-[11px] font-semibold tracking-widest uppercase text-zinc-500">{title}</span>
+    </div>
+  )
+}
+
 const PODIUM_CFG = {
-  1: { height: 'h-24', color: '#eab308', label: '1st' },
-  2: { height: 'h-16', color: '#a1a1aa', label: '2nd' },
-  3: { height: 'h-12', color: '#b45309', label: '3rd' },
+  1: { barH: 'h-20', color: '#c9a84c', emoji: '🥇', label: '1ST' },
+  2: { barH: 'h-12', color: '#a1a1aa', emoji: '🥈', label: '2ND' },
+  3: { barH: 'h-8',  color: '#92400e', emoji: '🥉', label: '3RD' },
 } as const
 
 function PodiumSlot({ entry, place }: { entry: LeaderboardEntry; place: 1 | 2 | 3 }) {
   const cfg = PODIUM_CFG[place]
   return (
-    <div className="flex flex-col items-center gap-1.5 flex-1 max-w-[110px]">
-      {place === 1 && <span className="text-xl leading-none mb-0.5">👑</span>}
-      <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border-2"
+    <div className="flex flex-col items-center flex-1 max-w-[110px]">
+      {place === 1 && <span className="text-lg mb-1">👑</span>}
+      <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold overflow-hidden border-2 mb-1"
         style={{ borderColor: cfg.color }}>
-        {entry.avatar_url
+        {entry.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={entry.avatar_url} alt="" className="w-full h-full object-cover" />
-          : <span className="w-full h-full flex items-center justify-center text-sm font-black"
-              style={{ backgroundColor: cfg.color + '33', color: cfg.color }}>
-              {entry.display_name.slice(0, 2).toUpperCase()}
-            </span>
-        }
+          <img src={entry.avatar_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center fifa-score text-base"
+            style={{ backgroundColor: cfg.color + '22', color: cfg.color }}>
+            {entry.display_name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
       </div>
-      <p className="text-xs font-semibold text-white text-center truncate w-full px-1">
+      <p className="fifa-score text-sm text-[#f0f0f0] text-center truncate w-full px-1 leading-tight">
         {entry.display_name.split(' ')[0]}
       </p>
-      <p className="text-sm font-black" style={{ color: cfg.color }}>{entry.total_points} pts</p>
-      <div className={`w-full rounded-t-xl ${cfg.height} opacity-80 mt-1`} style={{ backgroundColor: cfg.color }} />
-      <p className="text-[10px] font-bold text-zinc-950 -mt-1">{cfg.label}</p>
+      <p className="fifa-score text-lg leading-tight mb-1" style={{ color: cfg.color }}>
+        {entry.total_points}
+      </p>
+      <div className={`w-full rounded-t-lg ${cfg.barH}`} style={{ backgroundColor: cfg.color + 'cc' }} />
+      <p className="fifa-score text-[11px] text-zinc-600 mt-0.5">{cfg.emoji} {cfg.label}</p>
+    </div>
+  )
+}
+
+function StandingsRow({ entry, isMe }: { entry: LeaderboardEntry; isMe: boolean }) {
+  const rankColor = entry.rank === 1 ? '#c9a84c' : entry.rank === 2 ? '#a1a1aa' : entry.rank === 3 ? '#92400e' : '#444'
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 border transition-colors"
+      style={{
+        backgroundColor: isMe ? '#c9a84c0a' : '#161616',
+        borderColor: isMe ? '#c9a84c44' : '#222',
+      }}>
+      <span className="fifa-score text-xl w-7 text-center shrink-0 leading-none" style={{ color: rankColor }}>
+        {entry.rank}
+      </span>
+      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 border"
+        style={{ backgroundColor: rankColor + '15', color: rankColor, borderColor: rankColor + '44' }}>
+        {entry.display_name.slice(0, 2).toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate" style={{ color: isMe ? '#c9a84c' : '#f0f0f0' }}>
+          {entry.display_name}
+          {isMe && <span className="ml-1.5 text-[10px] font-normal text-zinc-600">(you)</span>}
+        </p>
+        <p className="text-[10px] text-zinc-600 mt-0.5">
+          {entry.correct_predictions} correct · {entry.exact_scores} exact
+          {entry.current_streak > 1 && ` · 🔥 ${entry.current_streak}`}
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="fifa-score text-2xl leading-none" style={{ color: isMe ? '#c9a84c' : '#f0f0f0' }}>
+          {entry.total_points}
+        </p>
+        <p className="text-[9px] text-zinc-600 uppercase tracking-wider">pts</p>
+      </div>
     </div>
   )
 }

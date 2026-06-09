@@ -1,74 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================
-   PITCHLEAGUE — Global Styles
-   League theme is injected via CSS variables
-   on the root element per-league
+   FIFA 2026 Design System
    ============================================ */
 
 :root {
+  /* League theme (injected per-league) */
   --league-primary: #16a34a;
   --league-accent: #15803d;
   --league-primary-10: #16a34a1a;
   --league-primary-20: #16a34a33;
+
+  /* FIFA palette */
+  --fifa-black:      #0a0a0a;
+  --fifa-dark:       #111111;
+  --fifa-card:       #161616;
+  --fifa-border:     #222222;
+  --fifa-gold:       #c9a84c;
+  --fifa-gold-light: #e8c96d;
+  --fifa-red:        #e63946;
+  --fifa-green:      #2dc653;
+  --fifa-live:       #ff2d2d;
+  --fifa-white:      #f0f0f0;
+  --fifa-grey:       #666666;
 }
 
-/* Safe area for bottom nav on iOS */
+/* ── Typography ── */
+.fifa-score {
+  font-family: var(--font-bebas, 'Bebas Neue', sans-serif);
+  letter-spacing: 0.05em;
+}
+
+/* ── Match card ── */
+.match-card {
+  background: var(--fifa-card);
+  border: 1px solid var(--fifa-border);
+  border-radius: 12px;
+  transition: border-color 0.2s;
+}
+.match-card:hover {
+  border-color: #333;
+}
+
+/* ── Gold gradient ── */
+.gold-gradient {
+  background: linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%);
+}
+
+/* ── LIVE pulse ── */
+.live-pulse {
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Page slide-up ── */
+.page-enter {
+  animation: slideUp 0.2s ease-out;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── iOS safe area bottom nav ── */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
 
-/* Prevent body scroll bounce on iOS */
+/* ── Prevent bounce on iOS ── */
 html, body {
   overscroll-behavior: none;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-radius: 2px;
-}
-
-/* Match card score input - remove default number arrows */
+/* ── Hide number input arrows ── */
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
 }
 
-/* Smooth page transitions */
-.page-enter {
-  animation: slideUp 0.2s ease-out;
-}
+/* ── Scrollbar ── */
+::-webkit-scrollbar        { width: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #2a2a2a; border-radius: 2px; }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* League branded gradient */
+/* ── League gradient ── */
 .league-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--league-primary) 0%,
-    var(--league-accent) 100%
-  );
+  background: linear-gradient(135deg, var(--league-primary) 0%, var(--league-accent) 100%);
 }
 
-/* Rank badge glow for #1 */
+/* ── Rank glow ── */
 .rank-gold {
-  box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.35);
 }
