@@ -25,7 +25,7 @@ export default function PlayBottomNav({ slug }: { slug: string }) {
               href={href}
               className={`flex flex-col items-center gap-1 py-3 px-5 rounded-xl transition-colors ${
                 active
-                  ? 'text-[var(--league-primary,#16a34a)]'
+                  ? 'text-[#c9a84c]'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
             >

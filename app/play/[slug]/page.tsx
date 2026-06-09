@@ -193,6 +193,9 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         {/* ── Predict Now ── */}
         <section className="mb-8">
           <SectionHeader title="PREDICT NOW" />
+          <p className="text-[10px] text-zinc-600 -mt-2 mb-4">
+            Predictions lock at kickoff · Exact score = 5pts · Correct winner = 2pts
+          </p>
           {openMatches.length === 0 ? (
             <div className="match-card p-8 text-center">
               <span className="text-3xl block mb-3">⏳</span>
@@ -469,10 +472,10 @@ function FifaMatchCard({
             <ScoreStepper value={scoreB} onChange={setScoreB} disabled={!isOpen || saving} compact />
           </div>
 
-          {/* Team B: name + flag */}
+          {/* Team B: flag + name */}
           <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_b}</span>
             <span className="text-2xl leading-none shrink-0">{flagB}</span>
+            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_b}</span>
           </div>
         </div>
 
@@ -521,7 +524,7 @@ function FifaMatchCard({
 function ScoreStepper({ value, onChange, disabled, compact = false }: {
   value: number; onChange: (v: number) => void; disabled: boolean; compact?: boolean
 }) {
-  const btn = compact ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'
+  const btn = compact ? 'w-6 h-6 text-xs' : 'w-7 h-7 text-xs'
   const score = compact ? 'fifa-score text-xl w-5 leading-none' : 'fifa-score text-3xl w-8 leading-none'
   const gap = compact ? 'gap-1' : 'gap-2'
   return (
