@@ -1,276 +1,30 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
-import html2canvas from 'html2canvas'
+import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { ShareCardData } from '@/types'
 
-const BEBAS = "'Bebas Neue', sans-serif"
 const GOLD = '#c9a84c'
 const GOLD_LIGHT = '#e8c96d'
+const BEBAS = "var(--font-bebas, 'Bebas Neue', sans-serif)"
 
-/* ── Flag CDN helper — avoids emoji canvas 0×0 error ── */
-const FLAG_MAP: Record<string, string> = {
-  'Mexico': 'mx', 'Ecuador': 'ec', 'USA': 'us', 'United States': 'us',
-  'Brazil': 'br', 'Argentina': 'ar', 'France': 'fr', 'Germany': 'de',
-  'Spain': 'es', 'England': 'gb-eng', 'Portugal': 'pt', 'Netherlands': 'nl',
-  'Belgium': 'be', 'Croatia': 'hr', 'Morocco': 'ma', 'Japan': 'jp',
-  'South Korea': 'kr', 'Senegal': 'sn', 'Canada': 'ca', 'Uruguay': 'uy',
-  'Colombia': 'co', 'Chile': 'cl', 'Venezuela': 've', 'Jamaica': 'jm',
-  'Panama': 'pa', 'Bolivia': 'bo', 'Paraguay': 'py', 'Peru': 'pe',
-  'Costa Rica': 'cr', 'Honduras': 'hn', 'Qatar': 'qa', 'Saudi Arabia': 'sa',
-  'Australia': 'au', 'Iran': 'ir', 'South Africa': 'za', 'Nigeria': 'ng',
-  'Cameroon': 'cm', 'Ghana': 'gh', 'Egypt': 'eg', 'Algeria': 'dz',
-  'Tunisia': 'tn', 'Serbia': 'rs', 'Poland': 'pl', 'Switzerland': 'ch',
-  'Austria': 'at', 'Denmark': 'dk', 'Sweden': 'se', 'Norway': 'no',
-  'Turkey': 'tr', 'Ukraine': 'ua', 'Slovakia': 'sk', 'Czech Republic': 'cz',
-  'Czechia': 'cz', 'Hungary': 'hu', 'Romania': 'ro', 'Slovenia': 'si',
-  'Albania': 'al', 'Bosnia': 'ba', 'New Zealand': 'nz', 'Ivory Coast': 'ci',
-  'DR Congo': 'cd', 'New Caledonia': 'nc',
+function buildCardUrl(data: ShareCardData): string {
+  const base = typeof window !== 'undefined' ? window.location.origin : 'https://pitchleague.vercel.app'
+  const p = new URLSearchParams({
+    teamA:  data.team_a,
+    teamB:  data.team_b,
+    scoreA: String(data.predicted_score_a ?? 0),
+    scoreB: String(data.predicted_score_b ?? 0),
+    league: data.league_name,
+    rank:   String(data.user_rank),
+    total:  String(data.total_members),
+    flagA:  data.team_a_flag || '',
+    flagB:  data.team_b_flag || '',
+    name:   data.user_name,
+  })
+  return `${base}/api/share-card?${p.toString()}`
 }
 
-function getFlagUrl(countryName: string): string {
-  const code = FLAG_MAP[countryName] || 'un'
-  return `https://flagcdn.com/48x36/${code}.png`
-}
-
-async function preloadImages(urls: string[]): Promise<void> {
-  await Promise.all(urls.map(url => new Promise<void>(resolve => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve()
-    img.onerror = () => resolve()
-    img.src = url
-  })))
-}
-
-/* ────────────────────────────────────────────────────────────
-   Pure visual card — 390×690px, captured by html2canvas
-   ──────────────────────────────────────────────────────────── */
-export function ShareCardDisplay({
-  data,
-  innerRef,
-}: {
-  data: ShareCardData
-  innerRef: React.RefObject<HTMLDivElement>
-}) {
-  const initials = data.league_name.slice(0, 2).toUpperCase()
-
-  return (
-    <div
-      ref={innerRef}
-      data-share-card
-      style={{
-        width: 390,
-        height: 690,
-        background: '#0a0a0a',
-        border: `2px solid ${GOLD}`,
-        borderRadius: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        overflow: 'hidden',
-        position: 'relative',
-        fontFamily: 'Inter, sans-serif',
-        color: '#f0f0f0',
-        flexShrink: 0,
-      }}
-    >
-      {/* ── Subtle gold glow top ── */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 180,
-        background: `radial-gradient(ellipse at 50% 0%, ${GOLD}18 0%, transparent 70%)`,
-        pointerEvents: 'none',
-      }} />
-
-      {/* ── Top bar: league branding ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '20px 24px 0',
-      }}>
-        {data.league_logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={data.league_logo}
-            alt=""
-            style={{ width: 36, height: 36, borderRadius: 18, objectFit: 'cover' }}
-            crossOrigin="anonymous"
-          />
-        ) : (
-          <div style={{
-            width: 36, height: 36, borderRadius: 18,
-            background: data.primary_color + '33',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: BEBAS, fontSize: 18, color: GOLD,
-          }}>{initials}</div>
-        )}
-        <span style={{
-          fontFamily: BEBAS, fontSize: 18, letterSpacing: '0.08em',
-          color: '#d0d0d0', textTransform: 'uppercase',
-        }}>{data.league_name}</span>
-        <div style={{ flex: 1 }} />
-        <span style={{
-          fontFamily: BEBAS, fontSize: 14, letterSpacing: '0.12em',
-          color: GOLD,
-        }}>FIFA 2026</span>
-      </div>
-
-      {/* ── MY PREDICTION label ── */}
-      <div style={{ textAlign: 'center', paddingTop: 28 }}>
-        <span style={{
-          fontFamily: BEBAS, fontSize: 13, letterSpacing: '0.25em',
-          color: GOLD, textTransform: 'uppercase',
-        }}>My Prediction</span>
-      </div>
-
-      {/* ── Teams + Score ── */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        padding: '20px 24px 0',
-        gap: 8,
-      }}>
-        {/* Team A */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'flex-start', gap: 8,
-        }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={getFlagUrl(data.team_a)}
-            alt={data.team_a}
-            crossOrigin="anonymous"
-            style={{ width: 72, height: 54, objectFit: 'contain' }}
-          />
-          <span style={{
-            fontFamily: BEBAS, fontSize: 26, letterSpacing: '0.05em',
-            color: '#f0f0f0', lineHeight: 1.1,
-            wordBreak: 'break-word', maxWidth: 110,
-          }}>{data.team_a}</span>
-        </div>
-
-        {/* Score */}
-        <div style={{
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', gap: 4, flexShrink: 0,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{
-              fontFamily: BEBAS, fontSize: 80, lineHeight: 1,
-              color: GOLD,
-            }}>{data.predicted_score_a ?? 0}</span>
-            <span style={{
-              fontFamily: BEBAS, fontSize: 48, color: '#444',
-              lineHeight: 1, margin: '0 4px',
-            }}>—</span>
-            <span style={{
-              fontFamily: BEBAS, fontSize: 80, lineHeight: 1,
-              color: GOLD,
-            }}>{data.predicted_score_b ?? 0}</span>
-          </div>
-          <span style={{
-            fontSize: 10, color: '#555', letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}>predicted score</span>
-        </div>
-
-        {/* Team B */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          alignItems: 'flex-end', gap: 8,
-        }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={getFlagUrl(data.team_b)}
-            alt={data.team_b}
-            crossOrigin="anonymous"
-            style={{ width: 72, height: 54, objectFit: 'contain' }}
-          />
-          <span style={{
-            fontFamily: BEBAS, fontSize: 26, letterSpacing: '0.05em',
-            color: '#f0f0f0', lineHeight: 1.1, textAlign: 'right',
-            wordBreak: 'break-word', maxWidth: 110,
-          }}>{data.team_b}</span>
-        </div>
-      </div>
-
-      {/* ── Gold divider ── */}
-      <div style={{
-        margin: '28px 24px 0',
-        height: 1,
-        background: `linear-gradient(90deg, transparent, ${GOLD}88, transparent)`,
-      }} />
-
-      {/* ── Bottom info ── */}
-      <div style={{
-        padding: '20px 24px 0',
-        display: 'flex', flexDirection: 'column', gap: 10,
-      }}>
-        {/* Match info */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 14px',
-          background: '#161616',
-          borderRadius: 10,
-          border: '1px solid #222',
-        }}>
-          <span style={{ fontSize: 11, color: '#555', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: BEBAS }}>VS</span>
-          <span style={{ fontSize: 12, color: '#666', letterSpacing: '0.04em' }}>
-            {data.team_a} vs {data.team_b}
-          </span>
-        </div>
-
-        {/* Rank */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '12px 14px',
-          background: `${GOLD}0d`,
-          borderRadius: 10,
-          border: `1px solid ${GOLD}33`,
-        }}>
-          <span style={{ fontFamily: BEBAS, fontSize: 20, color: GOLD, lineHeight: 1 }}>#</span>
-          <div>
-            <div style={{
-              fontFamily: BEBAS, fontSize: 22, letterSpacing: '0.06em',
-              color: GOLD, lineHeight: 1,
-            }}>Currently #{data.user_rank} of {data.total_members}</div>
-            <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{data.league_name}</div>
-          </div>
-          <div style={{ flex: 1 }} />
-          <div style={{
-            fontFamily: BEBAS, fontSize: 14, letterSpacing: '0.08em',
-            color: '#444',
-          }}>{data.user_name}</div>
-        </div>
-      </div>
-
-      {/* ── Gold corner accent ── */}
-      <div style={{
-        position: 'absolute', top: 0, right: 0,
-        width: 60, height: 60,
-        background: `linear-gradient(135deg, transparent 50%, ${GOLD}22 50%)`,
-      }} />
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0,
-        width: 60, height: 60,
-        background: `linear-gradient(315deg, transparent 50%, ${GOLD}22 50%)`,
-      }} />
-
-      {/* ── Watermark ── */}
-      <div style={{ flex: 1 }} />
-      <div style={{
-        textAlign: 'center', padding: '0 24px 20px',
-        fontFamily: BEBAS, fontSize: 12, letterSpacing: '0.15em',
-        color: '#2a2a2a', textTransform: 'uppercase',
-      }}>
-        pitchleague.vercel.app
-      </div>
-    </div>
-  )
-}
-
-/* ────────────────────────────────────────────────────────────
-   Modal: renders the card, captures it, triggers share/save
-   ──────────────────────────────────────────────────────────── */
 export function ShareModal({
   data,
   onClose,
@@ -278,136 +32,117 @@ export function ShareModal({
   data: ShareCardData
   onClose: () => void
 }) {
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [status, setStatus] = useState<'idle' | 'generating' | 'done'>('idle')
-  const [imgUrl, setImgUrl] = useState<string | null>(null)
-
-  const generate = useCallback(async () => {
-    if (!cardRef.current) return
-    setStatus('generating')
-    try {
-      await preloadImages([getFlagUrl(data.team_a), getFlagUrl(data.team_b)])
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#0a0a0a',
-        scale: 2,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        imageTimeout: 15000,
-        onclone: (clonedDoc) => {
-          const clonedCard = clonedDoc.querySelector('[data-share-card]') as HTMLElement | null
-          if (clonedCard) clonedCard.style.display = 'flex'
-        },
-      })
-      const dataUrl = canvas.toDataURL('image/png')
-      setImgUrl(dataUrl)
-      setStatus('done')
-    } catch (e) {
-      console.error('[ShareCard] html2canvas error', e)
-      setStatus('idle')
-    }
-  }, [data.team_a, data.team_b])
+  const cardUrl = useMemo(() => buildCardUrl(data), [data])
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   async function handleShare() {
-    if (!imgUrl) return
+    setSharing(true)
     const scoreText = `${data.predicted_score_a ?? 0}-${data.predicted_score_b ?? 0}`
-    const text = `I predicted ${data.team_a} ${scoreText} ${data.team_b}! Join my FIFA 2026 league 👇`
+    const text = `I predicted ${data.team_a} ${scoreText} ${data.team_b}! Join my FIFA 2026 prediction league 👇`
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        const blob = await (await fetch(imgUrl)).blob()
+        // Try to share as file (mobile — saves to camera roll)
+        const res = await fetch(cardUrl)
+        const blob = await res.blob()
         const file = new File([blob], 'my-prediction.png', { type: 'image/png' })
         if (navigator.canShare?.({ files: [file] })) {
           await navigator.share({ title: 'My FIFA 2026 Prediction', text, files: [file] })
+          setSharing(false)
           return
         }
+        // Fallback: share URL
         await navigator.share({ title: 'My FIFA 2026 Prediction', text, url: data.invite_url })
+        setSharing(false)
         return
-      } catch { /* fallthrough to download */ }
+      } catch { /* fall through */ }
     }
 
-    const link = document.createElement('a')
-    link.download = 'my-prediction.png'
-    link.href = imgUrl
-    link.click()
+    // Desktop / no share API: open image in new tab (user saves manually)
+    window.open(cardUrl, '_blank')
+    setSharing(false)
   }
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-start overflow-y-auto"
+      style={{ backgroundColor: 'rgba(0,0,0,0.94)' }}
     >
-      {/* Close button */}
+      {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+        className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center border border-zinc-700 text-zinc-400 hover:text-white transition-colors z-10"
       >
         <X size={18} />
       </button>
 
-      <div className="flex flex-col items-center gap-5 px-4 w-full max-w-[420px]">
-        {/* Card preview — scaled to fit mobile screen */}
-        <div style={{ transform: 'scale(0.82)', transformOrigin: 'top center', marginBottom: -108 }}>
-          {status === 'done' && imgUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imgUrl}
-              alt="Your prediction card"
-              style={{ width: 390, height: 690, borderRadius: 20 }}
-            />
-          ) : (
-            <ShareCardDisplay data={data} innerRef={cardRef} />
+      <div className="flex flex-col items-center gap-5 px-4 pt-16 pb-10 w-full max-w-sm">
+
+        {/* Label */}
+        <p className="text-[10px] font-semibold tracking-[0.25em] uppercase" style={{ color: GOLD }}>
+          Your Prediction Card
+        </p>
+
+        {/* Card preview — server-rendered PNG */}
+        <div
+          className="w-full rounded-2xl overflow-hidden border"
+          style={{ borderColor: GOLD + '55', aspectRatio: '9/16', position: 'relative' }}
+        >
+          {!imgLoaded && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a] gap-3">
+              <div className="w-6 h-6 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs text-zinc-600">Generating card…</span>
+            </div>
           )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cardUrl}
+            alt="Your FIFA 2026 prediction card"
+            onLoad={() => setImgLoaded(true)}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              opacity: imgLoaded ? 1 : 0,
+              transition: 'opacity 0.3s',
+            }}
+          />
         </div>
 
-        {/* Actions */}
-        {status === 'idle' && (
-          <button
-            onClick={generate}
-            className="w-full max-w-[320px] py-3.5 rounded-xl text-black font-bold text-base tracking-widest transition-opacity"
-            style={{
-              background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
-              fontFamily: BEBAS,
-              letterSpacing: '0.12em',
-              fontSize: '1.1rem',
-            }}
-          >
-            GENERATE CARD
-          </button>
-        )}
+        {/* Mobile hint */}
+        <p className="text-[10px] text-zinc-600 text-center -mt-1">
+          Long-press the card to save · or tap Share below
+        </p>
 
-        {status === 'generating' && (
-          <div className="flex items-center gap-3 py-3">
-            <div className="w-5 h-5 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-zinc-400">Generating card…</span>
-          </div>
-        )}
+        {/* Share button */}
+        <button
+          onClick={handleShare}
+          disabled={sharing || !imgLoaded}
+          className="w-full py-3.5 rounded-xl text-black font-bold tracking-widest transition-all disabled:opacity-50"
+          style={{
+            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+            fontFamily: BEBAS,
+            letterSpacing: '0.12em',
+            fontSize: '1.05rem',
+          }}
+        >
+          {sharing ? 'Opening…' : '📤 SHARE PREDICTION'}
+        </button>
 
-        {status === 'done' && (
-          <div className="flex flex-col items-center gap-3 w-full max-w-[320px]">
-            <button
-              onClick={handleShare}
-              className="w-full py-3.5 rounded-xl text-black font-bold tracking-widest transition-opacity"
-              style={{
-                background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
-                fontFamily: BEBAS,
-                letterSpacing: '0.12em',
-                fontSize: '1.1rem',
-              }}
-            >
-              📤 SAVE &amp; SHARE
-            </button>
-            <button
-              onClick={() => { setStatus('idle'); setImgUrl(null) }}
-              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
-            >
-              Regenerate
-            </button>
-          </div>
-        )}
+        {/* Open raw image link */}
+        <a
+          href={cardUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors underline underline-offset-2"
+        >
+          Open full-size image ↗
+        </a>
 
-        <p className="text-[10px] text-zinc-700">Tap outside to close</p>
+        <button onClick={onClose} className="text-xs text-zinc-700 hover:text-zinc-500 transition-colors">
+          Close
+        </button>
       </div>
     </div>
   )
