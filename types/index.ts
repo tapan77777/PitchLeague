@@ -23,6 +23,7 @@ export interface League {
   max_members: number
   created_at: string
   updated_at: string
+  reward_message?: string
   // Joined fields
   member_count?: number
 }

@@ -131,6 +131,17 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
 
       <div className="max-w-lg mx-auto px-4 pt-5">
 
+        {/* ── Reward banner ── */}
+        {league.reward_message && (
+          <div className="rounded-xl border border-[#c9a84c44] bg-[#c9a84c0a] px-4 py-3 mb-5 flex items-start gap-2">
+            <span className="text-base shrink-0">🎁</span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#c9a84c] mb-0.5">Rewards</p>
+              <p className="text-sm text-[#f0f0f0] leading-snug">{league.reward_message}</p>
+            </div>
+          </div>
+        )}
+
         {/* ── My position card ── */}
         {myEntry && (
           <div className="rounded-xl border mb-6 p-4" style={{ borderColor: '#c9a84c44', backgroundColor: '#c9a84c0a' }}>

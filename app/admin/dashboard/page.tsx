@@ -5,8 +5,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getAdminSession, getAdminLeagues, addAdminLeague, AdminSession } from '@/lib/admin'
-import { getLeagueThemeVars, getLeagueShareUrl, formatKickoff } from '@/lib/utils'
-import { League, LeagueMember, Match } from '@/types'
+import { getLeagueThemeVars, getLeagueShareUrl } from '@/lib/utils'
+import { League, LeagueMember } from '@/types'
 import { Copy, Check, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
 
 interface PredictionSummary { match_id: string; count: number; winner_counts: Record<string, number> }
@@ -14,7 +14,6 @@ interface PredictionSummary { match_id: string; count: number; winner_counts: Re
 interface PageData {
   league: League
   members: LeagueMember[]
-  matches: Match[]
   predSummary: Record<string, PredictionSummary>
   totalPredictions: number
   mostPredictedTeam: string
@@ -82,14 +81,12 @@ function DashboardContent() {
 
       addAdminLeague({ slug: league.slug, name: league.name, created_at: new Date().toISOString() })
 
-      const [membersRes, matchesRes, predsRes] = await Promise.all([
+      const [membersRes, predsRes] = await Promise.all([
         supabase.from('league_members').select('*').eq('league_id', league.id).order('total_points', { ascending: false }),
-        supabase.from('matches').select('*').order('kickoff_time', { ascending: true }),
         supabase.from('predictions').select('match_id, predicted_winner, submitted_at, clerk_id').eq('league_id', league.id),
       ])
 
       const members: LeagueMember[] = membersRes.data ?? []
-      const matches: Match[] = matchesRes.data ?? []
       const preds = predsRes.data ?? []
 
       const predSummary: Record<string, PredictionSummary> = {}
@@ -103,17 +100,14 @@ function DashboardContent() {
       const teamVoteCounts: Record<string, number> = {}
       for (const p of preds) {
         if (!p.predicted_winner || p.predicted_winner === 'draw') continue
-        const match = matches.find(m => m.id === p.match_id)
-        if (!match) continue
-        const teamName = p.predicted_winner === 'team_a' ? match.team_a : match.team_b
-        teamVoteCounts[teamName] = (teamVoteCounts[teamName] ?? 0) + 1
+        teamVoteCounts[p.predicted_winner] = (teamVoteCounts[p.predicted_winner] ?? 0) + 1
       }
       const mostPredictedTeam = Object.entries(teamVoteCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'
 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
       const activeTodayCount = new Set(preds.filter(p => new Date(p.submitted_at) >= todayStart).map(p => p.clerk_id)).size
 
-      setData({ league, members, matches, predSummary, totalPredictions: preds.length, mostPredictedTeam, activeTodayCount })
+      setData({ league, members, predSummary, totalPredictions: preds.length, mostPredictedTeam, activeTodayCount })
     } catch (err) {
       console.error('[admin dashboard]', err)
       setError('fetch_failed')
@@ -125,13 +119,6 @@ function DashboardContent() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
-
-  function onMatchFinished(matchId: string, scoreA: number, scoreB: number) {
-    setData(prev => !prev ? prev : {
-      ...prev,
-      matches: prev.matches.map(m => m.id === matchId ? { ...m, status: 'finished' as const, score_a: scoreA, score_b: scoreB } : m),
-    })
-  }
 
   function onLeagueUpdated(updated: League) {
     setData(prev => prev ? { ...prev, league: updated } : prev)
@@ -167,7 +154,7 @@ function DashboardContent() {
     )
   }
 
-  const { league, members, matches, predSummary, totalPredictions, mostPredictedTeam, activeTodayCount } = data
+  const { league, members, totalPredictions, mostPredictedTeam, activeTodayCount } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
   const inviteUrl = getLeagueShareUrl(league.slug)
@@ -206,19 +193,13 @@ function DashboardContent() {
         </div>
 
         <section>
-          <SectionHeading>Enter Results</SectionHeading>
-          {matches.length === 0
-            ? <EmptyCard>No matches scheduled yet.</EmptyCard>
-            : <div className="space-y-2">
-                {matches.map(match => (
-                  <MatchResultRow key={match.id} match={match} leagueId={league.id}
-                    predCount={predSummary[match.id]?.count ?? 0} onSaved={onMatchFinished} primary={primary} />
-                ))}
-              </div>
-          }
+          <SectionHeading>Results</SectionHeading>
+          <EmptyCard>Results are managed centrally. Scores update automatically after each match.</EmptyCard>
         </section>
 
         <BrandingPanel league={league} primary={primary} onSaved={onLeagueUpdated} />
+
+        <RewardsPanel league={league} primary={primary} onSaved={onLeagueUpdated} />
 
         <section>
           <SectionHeading>Members ({members.length})</SectionHeading>
@@ -431,6 +412,63 @@ function BrandingPanel({ league, primary: initialPrimary, onSaved }:
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function RewardsPanel({ league, primary, onSaved }:
+  { league: League; primary: string; onSaved: (l: League) => void }) {
+  const [open, setOpen] = useState(false)
+  const [rewardMessage, setRewardMessage] = useState(league.reward_message ?? '')
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState('')
+
+  async function handleSave() {
+    setSaving(true); setToast('')
+    try {
+      const res = await fetch(`/api/leagues/${league.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reward_message: rewardMessage }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setToast(data.error || 'Save failed'); return }
+      onSaved(data.league); setToast('Saved ✓'); setTimeout(() => setToast(''), 2500)
+    } catch { setToast('Network error') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <section>
+      <button onClick={() => setOpen(v => !v)} className="flex items-center justify-between w-full">
+        <SectionHeading>Custom Rewards</SectionHeading>
+        <span className="text-zinc-500 mb-3">{open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</span>
+      </button>
+      {open && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+          <p className="text-xs text-zinc-500 mb-3 leading-relaxed">
+            Describe the prize or reward for your league winner. This will appear as a banner on your leaderboard page visible to all members.
+          </p>
+          <Field label="Reward message (shown on leaderboard)">
+            <textarea value={rewardMessage} onChange={e => setRewardMessage(e.target.value)} maxLength={300} rows={3}
+              placeholder="e.g. 🏆 Winner gets a free dinner for two at our restaurant!"
+              className="w-full bg-zinc-950 border border-zinc-700 focus:border-green-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none resize-none placeholder-zinc-600" />
+          </Field>
+          <div className="flex items-center gap-3 mt-3">
+            <button onClick={handleSave} disabled={saving}
+              className="flex-1 font-bold py-3 rounded-xl text-sm text-black disabled:opacity-60"
+              style={{ backgroundColor: primary }}>
+              {saving ? 'Saving…' : 'Save Reward'}
+            </button>
+            {toast && <span className={`text-sm font-semibold ${toast === 'Saved ✓' ? 'text-green-400' : 'text-red-400'}`}>{toast}</span>}
+          </div>
+          {league.reward_message && (
+            <div className="mt-4 rounded-xl border border-[#c9a84c44] bg-[#c9a84c0a] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#c9a84c] mb-1">Preview (leaderboard banner)</p>
+              <p className="text-sm text-[#f0f0f0]">🎁 REWARDS: {league.reward_message}</p>
+            </div>
+          )}
         </div>
       )}
     </section>

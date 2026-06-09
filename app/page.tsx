@@ -188,6 +188,7 @@ export default function LandingPage() {
           <span className="text-white">BuddyTech Labs</span>
         </p>
         <p className="text-zinc-600 text-xs mt-1">Built for FIFA 2026 ⚽</p>
+        <Link href="/superadmin" className="text-zinc-900 text-[10px] mt-3 inline-block hover:text-zinc-700 transition-colors">SA</Link>
       </footer>
     </main>
   )
