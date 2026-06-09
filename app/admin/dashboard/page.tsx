@@ -9,12 +9,9 @@ import { getLeagueThemeVars, getLeagueShareUrl } from '@/lib/utils'
 import { League, LeagueMember } from '@/types'
 import { Copy, Check, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
 
-interface PredictionSummary { match_id: string; count: number; winner_counts: Record<string, number> }
-
 interface PageData {
   league: League
   members: LeagueMember[]
-  predSummary: Record<string, PredictionSummary>
   totalPredictions: number
   mostPredictedTeam: string
   activeTodayCount: number
@@ -89,14 +86,6 @@ function DashboardContent() {
       const members: LeagueMember[] = membersRes.data ?? []
       const preds = predsRes.data ?? []
 
-      const predSummary: Record<string, PredictionSummary> = {}
-      for (const p of preds) {
-        if (!predSummary[p.match_id]) predSummary[p.match_id] = { match_id: p.match_id, count: 0, winner_counts: {} }
-        predSummary[p.match_id].count++
-        const w = p.predicted_winner || 'unknown'
-        predSummary[p.match_id].winner_counts[w] = (predSummary[p.match_id].winner_counts[w] ?? 0) + 1
-      }
-
       const teamVoteCounts: Record<string, number> = {}
       for (const p of preds) {
         if (!p.predicted_winner || p.predicted_winner === 'draw') continue
@@ -107,7 +96,7 @@ function DashboardContent() {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
       const activeTodayCount = new Set(preds.filter(p => new Date(p.submitted_at) >= todayStart).map(p => p.clerk_id)).size
 
-      setData({ league, members, predSummary, totalPredictions: preds.length, mostPredictedTeam, activeTodayCount })
+      setData({ league, members, totalPredictions: preds.length, mostPredictedTeam, activeTodayCount })
     } catch (err) {
       console.error('[admin dashboard]', err)
       setError('fetch_failed')
@@ -236,84 +225,6 @@ function InviteLinkBox({ url, primary }: { url: string; primary: string }) {
         </button>
       </div>
       <p className="text-zinc-600 text-xs mt-2">Share this link on WhatsApp, Instagram, or your loyalty app.</p>
-    </div>
-  )
-}
-
-function MatchResultRow({ match, leagueId, predCount, onSaved, primary }:
-  { match: Match; leagueId: string; predCount: number; onSaved: (id: string, a: number, b: number) => void; primary: string }) {
-  const [expanded, setExpanded] = useState(false)
-  const [scoreA, setScoreA] = useState(0)
-  const [scoreB, setScoreB] = useState(0)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [saveError, setSaveError] = useState('')
-  const isFinished = match.status === 'finished'
-
-  async function handleSave() {
-    setSaving(true); setSaveError('')
-    try {
-      const res = await fetch('/api/admin/results', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ league_id: leagueId, match_id: match.id, score_a: scoreA, score_b: scoreB }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setSaveError(data.error || 'Failed to save'); setSaving(false); return }
-      setSaved(true); setExpanded(false); onSaved(match.id, scoreA, scoreB)
-    } catch { setSaveError('Network error') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-sm font-semibold">
-            <span>{match.team_a_flag || '🏴'}</span>
-            <span className="truncate max-w-[56px] sm:max-w-none">{match.team_a}</span>
-            {isFinished
-              ? <span className="text-green-400 font-black mx-1 tabular-nums">{match.score_a} – {match.score_b}</span>
-              : <span className="text-zinc-600 font-bold mx-1">vs</span>}
-            <span className="truncate max-w-[56px] sm:max-w-none">{match.team_b}</span>
-            <span>{match.team_b_flag || '🏴'}</span>
-          </div>
-          <p className="text-zinc-600 text-xs mt-0.5">
-            {formatKickoff(match.kickoff_time)}
-            {predCount > 0 && <span className="ml-2 text-zinc-500">· {predCount} predictions</span>}
-          </p>
-        </div>
-        {isFinished || saved
-          ? <span className="text-xs font-semibold text-green-400 shrink-0">✅ Done</span>
-          : <button onClick={() => setExpanded(v => !v)}
-              className="shrink-0 flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors"
-              style={{ color: primary, borderColor: primary + '44', backgroundColor: primary + '11' }}>
-              Enter result {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </button>
-        }
-      </div>
-      {expanded && !isFinished && !saved && (
-        <div className="px-4 pb-4 border-t border-zinc-800 pt-3">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex-1">
-              <p className="text-xs text-zinc-500 mb-1 truncate">{match.team_a}</p>
-              <input type="number" min={0} max={20} value={scoreA} onChange={e => setScoreA(Number(e.target.value))}
-                className="w-full bg-zinc-950 border border-zinc-700 focus:border-green-500 rounded-xl px-3 py-2.5 text-center text-xl font-black text-white outline-none" />
-            </div>
-            <span className="text-zinc-600 font-bold text-lg mt-4">–</span>
-            <div className="flex-1">
-              <p className="text-xs text-zinc-500 mb-1 truncate">{match.team_b}</p>
-              <input type="number" min={0} max={20} value={scoreB} onChange={e => setScoreB(Number(e.target.value))}
-                className="w-full bg-zinc-950 border border-zinc-700 focus:border-green-500 rounded-xl px-3 py-2.5 text-center text-xl font-black text-white outline-none" />
-            </div>
-          </div>
-          {saveError && <p className="text-red-400 text-xs mb-2">{saveError}</p>}
-          <button onClick={handleSave} disabled={saving}
-            className="w-full font-bold py-3 rounded-xl text-sm disabled:opacity-60 text-black"
-            style={{ backgroundColor: primary }}>
-            {saving ? 'Saving…' : 'Save Result & Calculate Points'}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
