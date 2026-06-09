@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { getMemberSession, clearMemberSession, MemberSession } from '@/lib/member'
+import { getOrCreateMemberId, getMemberName, hasJoinedLeague } from '@/lib/member'
 import { getLeagueThemeVars, getAccuracy, formatKickoff } from '@/lib/utils'
 import { League, LeagueMember, Badge } from '@/types'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
@@ -41,25 +41,31 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
   const { slug } = params
   const router = useRouter()
 
-  const [session, setSession] = useState<MemberSession | null>(null)
+  const [memberId, setMemberId] = useState('')
+  const [memberName, setMemberName] = useState('')
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
-    const s = getMemberSession()
-    if (!s || s.slug !== slug) { router.replace(`/league/${slug}`); return }
-    setSession(s)
+    const id = getOrCreateMemberId()
+    if (!id || !hasJoinedLeague(slug)) { router.replace(`/league/${slug}`); return }
+    setMemberId(id)
+    setMemberName(getMemberName())
   }, [slug, router])
 
-  const fetchData = useCallback(async (memberId: string, leagueId: string) => {
+  const fetchData = useCallback(async (memberId: string) => {
     setLoading(true)
     setError('')
     try {
-      const [leagueRes, memberRes, predRes, badgeRes, countRes] = await Promise.all([
-        supabase.from('leagues').select('*').eq('id', leagueId).single(),
-        supabase.from('league_members').select('*').eq('league_id', leagueId).eq('clerk_id', memberId).single(),
+      const leagueRes = await supabase.from('leagues').select('*').eq('slug', slug).maybeSingle()
+      if (!leagueRes.data) { setError('league_not_found'); setLoading(false); return }
+      const league = leagueRes.data
+      const leagueId = league.id
+
+      const [memberRes, predRes, badgeRes, countRes] = await Promise.all([
+        supabase.from('league_members').select('*').eq('league_id', leagueId).eq('clerk_id', memberId).maybeSingle(),
         supabase.from('predictions').select(`
           id, match_id, predicted_score_a, predicted_score_b,
           points_earned, is_correct_winner, is_exact_score, submitted_at,
@@ -69,8 +75,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
         supabase.from('league_members').select('*', { count: 'exact', head: true }).eq('league_id', leagueId),
       ])
 
-      if (leagueRes.error || !leagueRes.data) { setError('league_not_found'); return }
-      if (memberRes.error || !memberRes.data) { setError('not_member'); return }
+      if (!memberRes.data) { setError('not_member'); return }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const predictions: PredictionRow[] = (predRes.data ?? []).map((p: any) => ({
@@ -93,7 +98,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
       }))
 
       setData({
-        league: leagueRes.data,
+        league,
         membership: memberRes.data,
         memberCount: countRes.count ?? 0,
         predictions,
@@ -105,19 +110,18 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [slug])
 
   useEffect(() => {
-    if (session) fetchData(session.member_id, session.league_id)
-  }, [session, fetchData])
+    if (memberId) fetchData(memberId)
+  }, [memberId, fetchData])
 
   function handleLeave() {
     setLeaving(true)
-    clearMemberSession()
     router.replace('/')
   }
 
-  if (loading || !session) {
+  if (loading || !memberId) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="w-7 h-7 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
@@ -130,7 +134,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-5 text-center">
         <span className="text-4xl mb-4">⚠️</span>
         <p className="text-zinc-400 text-sm mb-4">Failed to load profile.</p>
-        <button onClick={() => fetchData(session.member_id, session.league_id)}
+        <button onClick={() => fetchData(memberId)}
           className="bg-green-500 text-black font-bold px-5 py-2.5 rounded-full text-sm">Retry</button>
       </div>
     )
@@ -139,7 +143,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
   const { league, membership, memberCount, predictions, badges } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
-  const initials = session.display_name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+  const initials = (memberName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
   const accuracy = getAccuracy(membership.correct_predictions ?? 0, predictions.length)
 
   return (
@@ -152,7 +156,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
             style={{ borderColor: primary, backgroundColor: primary + '22', color: primary }}>
             {initials}
           </div>
-          <h1 className="text-xl font-extrabold text-white">{session.display_name}</h1>
+          <h1 className="text-xl font-extrabold text-white">{memberName || 'You'}</h1>
           <p className="text-zinc-500 text-sm mt-0.5">{league.name}</p>
           <div className="mt-2 text-xs font-semibold px-3 py-1 rounded-full border"
             style={{ color: primary, borderColor: primary + '44', backgroundColor: primary + '11' }}>

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { getOrCreateMemberId, saveMemberSession } from '@/lib/member'
+import { getOrCreateMemberId, getMemberName, hasJoinedLeague, addLeagueToSession } from '@/lib/member'
 
 interface LeagueData {
   id: string
@@ -35,6 +35,16 @@ export default function LeagueJoinPage({
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Redirect immediately if already a member; pre-fill name if they've joined elsewhere
+  useEffect(() => {
+    if (hasJoinedLeague(slug)) {
+      router.replace(`/play/${slug}`)
+      return
+    }
+    const savedName = getMemberName()
+    if (savedName) setDisplayName(savedName)
+  }, [slug, router])
 
   useEffect(() => {
     async function fetchLeague() {
@@ -107,13 +117,7 @@ export default function LeagueJoinPage({
         return
       }
 
-      saveMemberSession({
-        member_id,
-        display_name: displayName.trim(),
-        league_id: league.id,
-        slug: league.slug,
-      })
-
+      addLeagueToSession(league.slug, displayName.trim())
       router.push(`/play/${slug}`)
     } catch {
       setJoinError('Network error. Please try again.')

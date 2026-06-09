@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getMemberSession, MemberSession } from '@/lib/member'
+import { getOrCreateMemberId, hasJoinedLeague } from '@/lib/member'
 import { getLeagueThemeVars, getLeagueShareUrl } from '@/lib/utils'
 import { League, Badge, LeaderboardEntry } from '@/types'
 import LeaderboardRow from '@/components/shared/LeaderboardRow'
@@ -20,32 +20,33 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
   const { slug } = params
   const router = useRouter()
 
-  const [session, setSession] = useState<MemberSession | null>(null)
+  const [memberId, setMemberId] = useState('')
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const s = getMemberSession()
-    if (!s || s.slug !== slug) { router.replace(`/league/${slug}`); return }
-    setSession(s)
+    const id = getOrCreateMemberId()
+    if (!id || !hasJoinedLeague(slug)) { router.replace(`/league/${slug}`); return }
+    setMemberId(id)
   }, [slug, router])
 
-  const fetchData = useCallback(async (leagueId: string) => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [leagueRes, membersRes, badgesRes, matchCountRes] = await Promise.all([
-        supabase.from('leagues').select('*').eq('id', leagueId).single(),
+      const leagueRes = await supabase.from('leagues').select('*').eq('slug', slug).maybeSingle()
+      if (!leagueRes.data) { setError('league_not_found'); setLoading(false); return }
+      const leagueId = leagueRes.data.id
+
+      const [membersRes, badgesRes, matchCountRes] = await Promise.all([
         supabase.from('league_members').select('*').eq('league_id', leagueId)
           .order('total_points', { ascending: false })
           .order('correct_predictions', { ascending: false }),
         supabase.from('badges').select('*').eq('league_id', leagueId),
         supabase.from('matches').select('*', { count: 'exact', head: true }).eq('status', 'finished'),
       ])
-
-      if (leagueRes.error || !leagueRes.data) { setError('league_not_found'); return }
 
       const badgeMap: Record<string, Badge[]> = {}
       for (const b of badgesRes.data ?? []) {
@@ -66,17 +67,18 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
       }))
 
       setData({ league: leagueRes.data, entries, matchesPlayed: matchCountRes.count ?? 0 })
+
     } catch (err) {
       console.error('[play leaderboard]', err)
       setError('fetch_failed')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [slug])
 
   useEffect(() => {
-    if (session) fetchData(session.league_id)
-  }, [session, fetchData])
+    if (memberId) fetchData()
+  }, [memberId, fetchData])
 
   async function copyInviteLink() {
     if (!data) return
@@ -85,7 +87,7 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (loading || !session) {
+  if (loading || !memberId) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="w-7 h-7 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
@@ -98,7 +100,7 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-5 text-center">
         <span className="text-4xl mb-4">⚠️</span>
         <p className="text-zinc-400 text-sm mb-4">Failed to load leaderboard.</p>
-        <button onClick={() => fetchData(session.league_id)}
+        <button onClick={() => fetchData()}
           className="bg-green-500 text-black font-bold px-5 py-2.5 rounded-full text-sm">Retry</button>
       </div>
     )
@@ -107,7 +109,7 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
   const { league, entries, matchesPlayed } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
-  const myEntry = entries.find(e => e.clerk_id === session.member_id)
+  const myEntry = entries.find(e => e.clerk_id === memberId)
   const top3 = entries.slice(0, 3)
 
   return (
@@ -195,7 +197,7 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
                 <LeaderboardRow
                   key={entry.clerk_id}
                   entry={entry}
-                  isCurrentUser={entry.clerk_id === session.member_id}
+                  isCurrentUser={entry.clerk_id === memberId}
                 />
               ))}
             </div>

@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getAdminSession, AdminSession } from '@/lib/admin'
+import { getAdminSession, getAdminLeagues, addAdminLeague, AdminSession } from '@/lib/admin'
 import { getLeagueThemeVars, getLeagueShareUrl, formatKickoff } from '@/lib/utils'
 import { League, LeagueMember, Match } from '@/types'
 import { Copy, Check, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react'
@@ -61,7 +61,7 @@ function DashboardContent() {
       const slugParam = searchParams.get('league')
       const adminSession = getAdminSession()
 
-      // Find league: prefer URL slug, fall back to localStorage session
+      // Find league: prefer URL slug → localStorage session → first admin league
       let league: League | null = null
       if (slugParam) {
         const { data } = await supabase.from('leagues').select('*').eq('slug', slugParam).maybeSingle()
@@ -71,7 +71,16 @@ function DashboardContent() {
         const { data } = await supabase.from('leagues').select('*').eq('id', adminSession.league_id).maybeSingle()
         league = data
       }
+      if (!league) {
+        const firstAdminLeague = getAdminLeagues()[0]
+        if (firstAdminLeague) {
+          const { data } = await supabase.from('leagues').select('*').eq('slug', firstAdminLeague.slug).maybeSingle()
+          league = data
+        }
+      }
       if (!league) { setError('no_league'); setLoading(false); return }
+
+      addAdminLeague({ slug: league.slug, name: league.name, created_at: new Date().toISOString() })
 
       const [membersRes, matchesRes, predsRes] = await Promise.all([
         supabase.from('league_members').select('*').eq('league_id', league.id).order('total_points', { ascending: false }),

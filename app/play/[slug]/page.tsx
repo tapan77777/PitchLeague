@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getMemberSession, MemberSession } from '@/lib/member'
+import { getOrCreateMemberId, getMemberName, hasJoinedLeague } from '@/lib/member'
 import { getLeagueThemeVars, getAccuracy, formatKickoff } from '@/lib/utils'
 import { League, LeagueMember, Match, Prediction } from '@/types'
 import MatchCard from '@/components/shared/MatchCard'
@@ -23,42 +23,48 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
   const { slug } = params
   const router = useRouter()
 
-  const [session, setSession] = useState<MemberSession | null>(null)
+  const [memberId, setMemberId] = useState('')
+  const [memberName, setMemberName] = useState('')
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const s = getMemberSession()
-    if (!s || s.slug !== slug) {
+    const id = getOrCreateMemberId()
+    const name = getMemberName()
+    if (!id || !hasJoinedLeague(slug)) {
       router.replace(`/league/${slug}`)
       return
     }
-    setSession(s)
+    setMemberId(id)
+    setMemberName(name)
   }, [slug, router])
 
-  const fetchData = useCallback(async (memberId: string, leagueId: string) => {
+  const fetchData = useCallback(async (memberId: string) => {
     setLoading(true)
     setError('')
     try {
-      const [leagueRes, memberRes, upcomingRes, recentRes, predRes, countRes] = await Promise.all([
-        supabase.from('leagues').select('*').eq('id', leagueId).single(),
-        supabase.from('league_members').select('*').eq('league_id', leagueId).eq('clerk_id', memberId).single(),
+      const leagueRes = await supabase.from('leagues').select('*').eq('slug', slug).maybeSingle()
+      if (!leagueRes.data) { setError('league_not_found'); setLoading(false); return }
+      const league = leagueRes.data
+      const leagueId = league.id
+
+      const [memberRes, upcomingRes, recentRes, predRes, countRes] = await Promise.all([
+        supabase.from('league_members').select('*').eq('league_id', leagueId).eq('clerk_id', memberId).maybeSingle(),
         supabase.from('matches').select('*').eq('status', 'upcoming').order('kickoff_time', { ascending: true }).limit(10),
         supabase.from('matches').select('*').eq('status', 'finished').order('kickoff_time', { ascending: false }).limit(5),
         supabase.from('predictions').select('*').eq('league_id', leagueId).eq('clerk_id', memberId),
         supabase.from('league_members').select('*', { count: 'exact', head: true }).eq('league_id', leagueId),
       ])
 
-      if (leagueRes.error || !leagueRes.data) { setError('league_not_found'); return }
-      if (memberRes.error || !memberRes.data) { setError('not_member'); return }
+      if (!memberRes.data) { setError('not_member'); return }
 
       const now = new Date()
       const predMap: Record<string, Prediction> = {}
       for (const p of predRes.data ?? []) predMap[p.match_id] = p
 
       setData({
-        league: leagueRes.data,
+        league,
         membership: memberRes.data,
         memberCount: countRes.count ?? 0,
         openMatches: (upcomingRes.data ?? []).filter(m => new Date(m.kickoff_time) > now),
@@ -71,14 +77,14 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [slug])
 
   useEffect(() => {
-    if (session) fetchData(session.member_id, session.league_id)
-  }, [session, fetchData])
+    if (memberId) fetchData(memberId)
+  }, [memberId, fetchData])
 
   async function handlePredict(matchId: string, scoreA: number, scoreB: number) {
-    if (!data || !session) return
+    if (!data || !memberId) return
     const res = await fetch('/api/predictions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -87,7 +93,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         match_id: matchId,
         predicted_score_a: scoreA,
         predicted_score_b: scoreB,
-        member_id: session.member_id,
+        member_id: memberId,
       }),
     })
     const json = await res.json()
@@ -95,7 +101,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
     setData(prev => prev ? { ...prev, predictions: { ...prev.predictions, [matchId]: json.prediction } } : prev)
   }
 
-  if (loading || !session) {
+  if (loading || !memberId) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="w-7 h-7 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
@@ -110,7 +116,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         <p className="text-zinc-400 text-sm mb-4">
           {error === 'not_member' ? 'You are not a member of this league.' : 'Failed to load. Please try again.'}
         </p>
-        <button onClick={() => fetchData(session.member_id, session.league_id)}
+        <button onClick={() => fetchData(memberId)}
           className="bg-green-500 text-black font-bold px-5 py-2.5 rounded-full text-sm">
           Retry
         </button>
@@ -121,7 +127,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
   const { league, membership, memberCount, openMatches, recentMatches, predictions } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
-  const initials = session.display_name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+  const initials = (memberName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white pb-24" style={themeVars}>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import ReturningUserBar from '@/components/ReturningUserBar'
 
 export default function LandingPage() {
   return (
@@ -15,6 +16,7 @@ export default function LandingPage() {
           Create a League
         </Link>
       </nav>
+      <ReturningUserBar />
 
       {/* Hero */}
       <section className="flex flex-col items-center text-center px-5 pt-16 pb-20 max-w-2xl mx-auto">
