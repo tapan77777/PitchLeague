@@ -1,0 +1,8 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/league/[slug]/page": "app/league/[slug]/page.js",
+  "/play/[slug]/page": "app/play/[slug]/page.js",
+  "/api/predictions/route": "app/api/predictions/route.js",
+  "/play/[slug]/leaderboard/page": "app/play/[slug]/leaderboard/page.js",
+  "/play/[slug]/profile/page": "app/play/[slug]/profile/page.js"
+}
