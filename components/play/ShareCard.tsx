@@ -9,6 +9,41 @@ const BEBAS = "'Bebas Neue', sans-serif"
 const GOLD = '#c9a84c'
 const GOLD_LIGHT = '#e8c96d'
 
+/* ── Flag CDN helper — avoids emoji canvas 0×0 error ── */
+const FLAG_MAP: Record<string, string> = {
+  'Mexico': 'mx', 'Ecuador': 'ec', 'USA': 'us', 'United States': 'us',
+  'Brazil': 'br', 'Argentina': 'ar', 'France': 'fr', 'Germany': 'de',
+  'Spain': 'es', 'England': 'gb-eng', 'Portugal': 'pt', 'Netherlands': 'nl',
+  'Belgium': 'be', 'Croatia': 'hr', 'Morocco': 'ma', 'Japan': 'jp',
+  'South Korea': 'kr', 'Senegal': 'sn', 'Canada': 'ca', 'Uruguay': 'uy',
+  'Colombia': 'co', 'Chile': 'cl', 'Venezuela': 've', 'Jamaica': 'jm',
+  'Panama': 'pa', 'Bolivia': 'bo', 'Paraguay': 'py', 'Peru': 'pe',
+  'Costa Rica': 'cr', 'Honduras': 'hn', 'Qatar': 'qa', 'Saudi Arabia': 'sa',
+  'Australia': 'au', 'Iran': 'ir', 'South Africa': 'za', 'Nigeria': 'ng',
+  'Cameroon': 'cm', 'Ghana': 'gh', 'Egypt': 'eg', 'Algeria': 'dz',
+  'Tunisia': 'tn', 'Serbia': 'rs', 'Poland': 'pl', 'Switzerland': 'ch',
+  'Austria': 'at', 'Denmark': 'dk', 'Sweden': 'se', 'Norway': 'no',
+  'Turkey': 'tr', 'Ukraine': 'ua', 'Slovakia': 'sk', 'Czech Republic': 'cz',
+  'Czechia': 'cz', 'Hungary': 'hu', 'Romania': 'ro', 'Slovenia': 'si',
+  'Albania': 'al', 'Bosnia': 'ba', 'New Zealand': 'nz', 'Ivory Coast': 'ci',
+  'DR Congo': 'cd', 'New Caledonia': 'nc',
+}
+
+function getFlagUrl(countryName: string): string {
+  const code = FLAG_MAP[countryName] || 'un'
+  return `https://flagcdn.com/48x36/${code}.png`
+}
+
+async function preloadImages(urls: string[]): Promise<void> {
+  await Promise.all(urls.map(url => new Promise<void>(resolve => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve()
+    img.onerror = () => resolve()
+    img.src = url
+  })))
+}
+
 /* ────────────────────────────────────────────────────────────
    Pure visual card — 390×690px, captured by html2canvas
    ──────────────────────────────────────────────────────────── */
@@ -24,6 +59,7 @@ export function ShareCardDisplay({
   return (
     <div
       ref={innerRef}
+      data-share-card
       style={{
         width: 390,
         height: 690,
@@ -73,7 +109,6 @@ export function ShareCardDisplay({
           color: '#d0d0d0', textTransform: 'uppercase',
         }}>{data.league_name}</span>
         <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 16 }}>🏆</span>
         <span style={{
           fontFamily: BEBAS, fontSize: 14, letterSpacing: '0.12em',
           color: GOLD,
@@ -99,7 +134,13 @@ export function ShareCardDisplay({
           flex: 1, display: 'flex', flexDirection: 'column',
           alignItems: 'flex-start', gap: 8,
         }}>
-          <span style={{ fontSize: 60, lineHeight: 1 }}>{data.team_a_flag || '🏴'}</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getFlagUrl(data.team_a)}
+            alt={data.team_a}
+            crossOrigin="anonymous"
+            style={{ width: 72, height: 54, objectFit: 'contain' }}
+          />
           <span style={{
             fontFamily: BEBAS, fontSize: 26, letterSpacing: '0.05em',
             color: '#f0f0f0', lineHeight: 1.1,
@@ -137,7 +178,13 @@ export function ShareCardDisplay({
           flex: 1, display: 'flex', flexDirection: 'column',
           alignItems: 'flex-end', gap: 8,
         }}>
-          <span style={{ fontSize: 60, lineHeight: 1 }}>{data.team_b_flag || '🏴'}</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={getFlagUrl(data.team_b)}
+            alt={data.team_b}
+            crossOrigin="anonymous"
+            style={{ width: 72, height: 54, objectFit: 'contain' }}
+          />
           <span style={{
             fontFamily: BEBAS, fontSize: 26, letterSpacing: '0.05em',
             color: '#f0f0f0', lineHeight: 1.1, textAlign: 'right',
@@ -166,9 +213,9 @@ export function ShareCardDisplay({
           borderRadius: 10,
           border: '1px solid #222',
         }}>
-          <span style={{ fontSize: 14 }}>📍</span>
+          <span style={{ fontSize: 11, color: '#555', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: BEBAS }}>VS</span>
           <span style={{ fontSize: 12, color: '#666', letterSpacing: '0.04em' }}>
-            {data.invite_url.includes('GROUP') ? '' : ''}{data.team_a} vs {data.team_b}
+            {data.team_a} vs {data.team_b}
           </span>
         </div>
 
@@ -180,7 +227,7 @@ export function ShareCardDisplay({
           borderRadius: 10,
           border: `1px solid ${GOLD}33`,
         }}>
-          <span style={{ fontSize: 18 }}>🏆</span>
+          <span style={{ fontFamily: BEBAS, fontSize: 20, color: GOLD, lineHeight: 1 }}>#</span>
           <div>
             <div style={{
               fontFamily: BEBAS, fontSize: 22, letterSpacing: '0.06em',
@@ -239,12 +286,18 @@ export function ShareModal({
     if (!cardRef.current) return
     setStatus('generating')
     try {
+      await preloadImages([getFlagUrl(data.team_a), getFlagUrl(data.team_b)])
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: '#0a0a0a',
         scale: 2,
         useCORS: true,
+        allowTaint: false,
         logging: false,
-        allowTaint: true,
+        imageTimeout: 15000,
+        onclone: (clonedDoc) => {
+          const clonedCard = clonedDoc.querySelector('[data-share-card]') as HTMLElement | null
+          if (clonedCard) clonedCard.style.display = 'flex'
+        },
       })
       const dataUrl = canvas.toDataURL('image/png')
       setImgUrl(dataUrl)
@@ -253,7 +306,7 @@ export function ShareModal({
       console.error('[ShareCard] html2canvas error', e)
       setStatus('idle')
     }
-  }, [])
+  }, [data.team_a, data.team_b])
 
   async function handleShare() {
     if (!imgUrl) return
