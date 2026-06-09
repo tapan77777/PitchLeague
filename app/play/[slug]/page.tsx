@@ -15,6 +15,7 @@ interface MatchSocialProof {
 interface PageData {
   league: League
   membership: LeagueMember
+  memberRank: number
   memberCount: number
   openMatches: Match[]
   recentMatches: Match[]
@@ -60,6 +61,13 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
 
       if (!memberRes.data) { setError('not_member'); return }
 
+      const rankRes = await supabase
+        .from('league_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('league_id', leagueId)
+        .gt('total_points', memberRes.data.total_points)
+      const memberRank = (rankRes.count ?? 0) + 1
+
       const predMap: Record<string, Prediction> = {}
       for (const p of predRes.data ?? []) predMap[p.match_id] = p
 
@@ -75,6 +83,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
 
       setData({
         league, membership: memberRes.data,
+        memberRank,
         memberCount: countRes.count ?? 0,
         openMatches: upcomingRes.data ?? [],
         recentMatches: recentRes.data ?? [],
@@ -123,7 +132,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
     )
   }
 
-  const { league, membership, openMatches, recentMatches, predictions, socialProof } = data
+  const { league, membership, memberRank, openMatches, recentMatches, predictions, socialProof } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
   const initials = (memberName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -134,32 +143,27 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
       {/* ── Top banner ── */}
       <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
         style={{ borderBottomColor: '#c9a84c22' }}>
-        <div className="flex items-center justify-between max-w-lg mx-auto w-full">
-          {/* Left: league branding */}
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between max-w-lg mx-auto w-full gap-2">
+          {/* Left: league logo */}
+          <div className="shrink-0">
             {league.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={league.logo_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+              <img src={league.logo_url} alt="" className="w-7 h-7 rounded-full object-cover" />
             ) : (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0"
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black"
                 style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
             )}
-            <span className="text-[11px] font-bold tracking-wider uppercase text-zinc-300 truncate max-w-[120px]">
-              {league.name}
-            </span>
           </div>
 
-          {/* Center: FIFA badge */}
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-sm">🏆</span>
-            <span className="text-[10px] font-bold tracking-widest uppercase"
-              style={{ color: '#c9a84c' }}>FIFA 2026</span>
-          </div>
+          {/* Center: league name */}
+          <span className="fifa-score text-xl leading-none text-[#f0f0f0] truncate flex-1 text-center">
+            {league.name}
+          </span>
 
           {/* Right: rank + avatar */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="fifa-score text-base leading-none" style={{ color: '#c9a84c' }}>
-              #{membership.rank || '—'}
+              #{memberRank}
             </span>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border"
               style={{ backgroundColor: primary + '22', color: primary, borderColor: primary + '55' }}>
@@ -175,7 +179,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         <div className="flex gap-2 overflow-x-auto pb-1 mb-7 -mx-4 px-4 scrollbar-none">
           {[
             { label: 'PTS', value: String(membership.total_points ?? 0) },
-            { label: 'RANK', value: `#${membership.rank || '—'}` },
+            { label: 'RANK', value: `#${memberRank}` },
             { label: 'STREAK', value: `🔥 ${membership.current_streak ?? 0}` },
             { label: 'ACC', value: getAccuracy(membership.correct_predictions ?? 0, Object.keys(predictions).length) },
           ].map(({ label, value }) => (
@@ -283,7 +287,8 @@ function FifaMatchCard({
 
   const flagA = match.team_a_flag || '🏴'
   const flagB = match.team_b_flag || '🏴'
-  const stage = match.group_name ? `GROUP ${match.group_name}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
+  const groupLabel = match.group_name ? match.group_name.replace(/^Group\s*/i, '').toUpperCase() : null
+  const stage = groupLabel ? `GROUP ${groupLabel}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
 
   /* FINISHED */
   if (match.status === 'finished') {
@@ -450,21 +455,24 @@ function FifaMatchCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-2 mb-5">
-          <div className="flex flex-col items-center gap-1 w-[38%]">
-            <span className="text-4xl leading-none">{flagA}</span>
-            <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_a}</span>
+        <div className="flex items-center gap-2 mb-5">
+          {/* Team A: flag + name */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+            <span className="text-2xl leading-none shrink-0">{flagA}</span>
+            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_a}</span>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <ScoreStepper value={scoreA} onChange={setScoreA} disabled={!isOpen || saving} />
-            <span className="fifa-score text-2xl text-zinc-700">—</span>
-            <ScoreStepper value={scoreB} onChange={setScoreB} disabled={!isOpen || saving} />
+          {/* Steppers */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ScoreStepper value={scoreA} onChange={setScoreA} disabled={!isOpen || saving} compact />
+            <span className="fifa-score text-lg text-zinc-700 px-0.5">—</span>
+            <ScoreStepper value={scoreB} onChange={setScoreB} disabled={!isOpen || saving} compact />
           </div>
 
-          <div className="flex flex-col items-center gap-1 w-[38%]">
-            <span className="text-4xl leading-none">{flagB}</span>
-            <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_b}</span>
+          {/* Team B: name + flag */}
+          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_b}</span>
+            <span className="text-2xl leading-none shrink-0">{flagB}</span>
           </div>
         </div>
 
@@ -510,19 +518,22 @@ function FifaMatchCard({
 
 /* ─────────────────────────── Sub-components ─────────────────────────── */
 
-function ScoreStepper({ value, onChange, disabled }: {
-  value: number; onChange: (v: number) => void; disabled: boolean
+function ScoreStepper({ value, onChange, disabled, compact = false }: {
+  value: number; onChange: (v: number) => void; disabled: boolean; compact?: boolean
 }) {
+  const btn = compact ? 'w-6 h-6 text-xs' : 'w-8 h-8 text-sm'
+  const score = compact ? 'fifa-score text-xl w-5 leading-none' : 'fifa-score text-3xl w-8 leading-none'
+  const gap = compact ? 'gap-1' : 'gap-2'
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center ${gap}`}>
       <button onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled}
-        className="w-8 h-8 rounded-full border flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
+        className={`${btn} rounded-full border flex items-center justify-center font-bold transition-colors disabled:opacity-30`}
         style={{ borderColor: '#c9a84c', color: '#c9a84c' }}>
         −
       </button>
-      <span className="fifa-score text-3xl w-8 text-center text-[#f0f0f0] leading-none">{value}</span>
+      <span className={`${score} text-center text-[#f0f0f0]`}>{value}</span>
       <button onClick={() => onChange(Math.min(20, value + 1))} disabled={disabled}
-        className="w-8 h-8 rounded-full border flex items-center justify-center text-sm font-bold transition-colors disabled:opacity-30"
+        className={`${btn} rounded-full border flex items-center justify-center font-bold transition-colors disabled:opacity-30`}
         style={{ borderColor: '#c9a84c', color: '#c9a84c' }}>
         +
       </button>

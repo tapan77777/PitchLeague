@@ -110,26 +110,20 @@ export default function PlayLeaderboardPage({ params }: { params: { slug: string
       {/* ── Header ── */}
       <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
         style={{ borderBottomColor: '#c9a84c22' }}>
-        <div className="flex items-center justify-between max-w-lg mx-auto w-full">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between max-w-lg mx-auto w-full gap-2">
+          <div className="shrink-0">
             {league.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={league.logo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+              <img src={league.logo_url} alt="" className="w-7 h-7 rounded-full object-cover" />
             ) : (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black"
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black"
                 style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
             )}
-            <span className="text-[11px] font-bold tracking-wider uppercase text-zinc-300 truncate max-w-[140px]">
-              {league.name}
-            </span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm">🏆</span>
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: '#c9a84c' }}>
-              FIFA 2026
-            </span>
-          </div>
-          <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider">
+          <span className="fifa-score text-xl leading-none text-[#f0f0f0] truncate flex-1 text-center">
+            {league.name}
+          </span>
+          <div className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider shrink-0">
             {matchesPlayed} played
           </div>
         </div>
