@@ -7,6 +7,9 @@ import { getOrCreateMemberId, getMemberName, hasJoinedLeague } from '@/lib/membe
 import { getLeagueThemeVars, getAccuracy, timeUntilKickoff, isPredictionOpen } from '@/lib/utils'
 import { League, LeagueMember, Match, Prediction } from '@/types'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
+import { ShareModal } from '@/components/play/ShareCard'
+import { ShareCardData } from '@/types'
+import { getLeagueShareUrl } from '@/lib/utils'
 
 interface MatchSocialProof {
   total: number; teamA: number; teamB: number; draw: number
@@ -34,6 +37,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [sharePayload, setSharePayload] = useState<ShareCardData | null>(null)
 
   useEffect(() => {
     const id = getOrCreateMemberId()
@@ -140,6 +144,10 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white pb-28" style={themeVars}>
 
+      {sharePayload && (
+        <ShareModal data={sharePayload} onClose={() => setSharePayload(null)} />
+      )}
+
       {/* ── Top banner ── */}
       <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
         style={{ borderBottomColor: '#c9a84c22' }}>
@@ -210,6 +218,8 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
                   prediction={predictions[match.id]}
                   socialProof={socialProof[match.id]}
                   onPredict={handlePredict}
+                  onShare={setSharePayload}
+                  shareContext={{ league, memberRank, memberCount: data.memberCount, memberName }}
                 />
               ))}
             </div>
@@ -228,6 +238,8 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
                   prediction={predictions[match.id]}
                   socialProof={socialProof[match.id]}
                   onPredict={handlePredict}
+                  onShare={setSharePayload}
+                  shareContext={{ league, memberRank, memberCount: data.memberCount, memberName }}
                 />
               ))}
             </div>
@@ -253,13 +265,22 @@ function SectionHeader({ title }: { title: string }) {
 
 /* ─────────────────────────── Match Card ─────────────────────────── */
 
+interface ShareContext {
+  league: League
+  memberRank: number
+  memberCount: number
+  memberName: string
+}
+
 function FifaMatchCard({
-  match, prediction, socialProof, onPredict,
+  match, prediction, socialProof, onPredict, onShare, shareContext,
 }: {
   match: Match
   prediction?: Prediction
   socialProof?: MatchSocialProof
   onPredict: (matchId: string, a: number, b: number) => Promise<void>
+  onShare?: (data: ShareCardData) => void
+  shareContext?: ShareContext
 }) {
   const isOpen = isPredictionOpen(match.kickoff_time)
   const hasPrediction = !!prediction
@@ -292,6 +313,29 @@ function FifaMatchCard({
   const flagB = match.team_b_flag || '🏴'
   const groupLabel = match.group_name ? match.group_name.replace(/^Group\s*/i, '').toUpperCase() : null
   const stage = groupLabel ? `GROUP ${groupLabel}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
+
+  function buildShareData(pred: Prediction): ShareCardData {
+    const ctx = shareContext!
+    return {
+      league_name: ctx.league.name,
+      league_logo: ctx.league.logo_url,
+      primary_color: ctx.league.primary_color || '#c9a84c',
+      user_name: ctx.memberName,
+      team_a: match.team_a,
+      team_b: match.team_b,
+      team_a_flag: match.team_a_flag,
+      team_b_flag: match.team_b_flag,
+      predicted_winner: (pred.predicted_score_a ?? 0) > (pred.predicted_score_b ?? 0)
+        ? match.team_a
+        : (pred.predicted_score_b ?? 0) > (pred.predicted_score_a ?? 0)
+          ? match.team_b : 'Draw',
+      predicted_score_a: pred.predicted_score_a,
+      predicted_score_b: pred.predicted_score_b,
+      user_rank: ctx.memberRank,
+      total_members: ctx.memberCount,
+      invite_url: getLeagueShareUrl(ctx.league.slug),
+    }
+  }
 
   /* FINISHED */
   if (match.status === 'finished') {
@@ -438,6 +482,21 @@ function FifaMatchCard({
               </button>
             )}
           </div>
+
+          {onShare && shareContext && (
+            <button
+              onClick={() => onShare(buildShareData(prediction))}
+              className="mt-3 w-full py-2.5 rounded-xl text-black font-bold tracking-widest transition-opacity active:opacity-80"
+              style={{
+                background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
+                fontFamily: "var(--font-bebas, 'Bebas Neue', sans-serif)",
+                fontSize: '0.95rem',
+                letterSpacing: '0.12em',
+              }}
+            >
+              📤 SHARE PREDICTION
+            </button>
+          )}
         </div>
       </div>
     )
