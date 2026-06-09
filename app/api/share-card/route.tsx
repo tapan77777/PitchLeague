@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     (
       <div
         style={{
-          width: 1080,
-          height: 1920,
+          width: 600,
+          height: 1000,
           background: '#0a0a0a',
           display: 'flex',
           flexDirection: 'column',
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       >
         {/* ── Top gold glow ── */}
         <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 500,
+          position: 'absolute', top: 0, left: 0, right: 0, height: 280,
           background: `radial-gradient(ellipse at 50% 0%, ${GOLD}22 0%, transparent 65%)`,
           display: 'flex',
         }} />
@@ -45,13 +45,13 @@ export async function GET(request: NextRequest) {
         {/* ── Corner accents ── */}
         <div style={{
           position: 'absolute', top: 0, right: 0,
-          width: 160, height: 160,
+          width: 90, height: 90,
           background: `linear-gradient(135deg, transparent 50%, ${GOLD}33 50%)`,
           display: 'flex',
         }} />
         <div style={{
           position: 'absolute', bottom: 0, left: 0,
-          width: 160, height: 160,
+          width: 90, height: 90,
           background: `linear-gradient(315deg, transparent 50%, ${GOLD}33 50%)`,
           display: 'flex',
         }} />
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         {/* ── Content column ── */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '100px 80px 0',
+          padding: '52px 44px 0',
           width: '100%',
           flex: 1,
         }}>
@@ -67,11 +67,11 @@ export async function GET(request: NextRequest) {
           {/* League name */}
           <div style={{
             color: GOLD,
-            fontSize: 52,
+            fontSize: 28,
             fontWeight: 700,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            marginBottom: 12,
+            marginBottom: 6,
           }}>
             {league}
           </div>
@@ -79,10 +79,10 @@ export async function GET(request: NextRequest) {
           {/* Tournament badge */}
           <div style={{
             color: '#555',
-            fontSize: 26,
+            fontSize: 14,
             letterSpacing: '0.3em',
             textTransform: 'uppercase',
-            marginBottom: 80,
+            marginBottom: 40,
           }}>
             FIFA WORLD CUP 2026
           </div>
@@ -90,13 +90,13 @@ export async function GET(request: NextRequest) {
           {/* MY PREDICTION */}
           <div style={{
             color: GOLD,
-            fontSize: 30,
+            fontSize: 16,
             letterSpacing: '0.45em',
             textTransform: 'uppercase',
-            marginBottom: 70,
+            marginBottom: 36,
             borderTop: `1px solid ${GOLD}44`,
             borderBottom: `1px solid ${GOLD}44`,
-            padding: '14px 40px',
+            padding: '8px 24px',
           }}>
             MY PREDICTION
           </div>
@@ -107,17 +107,17 @@ export async function GET(request: NextRequest) {
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
-            marginBottom: 80,
+            marginBottom: 40,
           }}>
             {/* Team A */}
             <div style={{
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', flex: 1, gap: 16,
+              alignItems: 'center', flex: 1, gap: 8,
             }}>
-              <div style={{ fontSize: 130 }}>{flagA}</div>
+              <div style={{ fontSize: 68 }}>{flagA}</div>
               <div style={{
                 color: '#f0f0f0',
-                fontSize: 48,
+                fontSize: 26,
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 textAlign: 'center',
@@ -131,23 +131,23 @@ export async function GET(request: NextRequest) {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 12,
+              gap: 4,
               flexShrink: 0,
             }}>
               <div style={{
                 color: GOLD,
-                fontSize: 180,
+                fontSize: 96,
                 fontWeight: 900,
                 lineHeight: 1,
               }}>
                 {scoreA}
               </div>
-              <div style={{ color: '#333', fontSize: 100, lineHeight: 1, padding: '0 8px' }}>
+              <div style={{ color: '#333', fontSize: 52, lineHeight: 1, padding: '0 4px' }}>
                 —
               </div>
               <div style={{
                 color: GOLD,
-                fontSize: 180,
+                fontSize: 96,
                 fontWeight: 900,
                 lineHeight: 1,
               }}>
@@ -158,12 +158,12 @@ export async function GET(request: NextRequest) {
             {/* Team B */}
             <div style={{
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', flex: 1, gap: 16,
+              alignItems: 'center', flex: 1, gap: 8,
             }}>
-              <div style={{ fontSize: 130 }}>{flagB}</div>
+              <div style={{ fontSize: 68 }}>{flagB}</div>
               <div style={{
                 color: '#f0f0f0',
-                fontSize: 48,
+                fontSize: 26,
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 textAlign: 'center',
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
             width: '100%',
             height: 1,
             background: `linear-gradient(90deg, transparent 0%, ${GOLD}66 30%, ${GOLD}66 70%, transparent 100%)`,
-            marginBottom: 60,
+            marginBottom: 32,
             display: 'flex',
           }} />
 
@@ -188,40 +188,40 @@ export async function GET(request: NextRequest) {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 12,
-            padding: '44px 60px',
+            gap: 6,
+            padding: '24px 32px',
             background: `${GOLD}12`,
             border: `1px solid ${GOLD}44`,
-            borderRadius: 24,
+            borderRadius: 14,
             width: '80%',
-            marginBottom: 40,
+            marginBottom: 24,
           }}>
             <div style={{
               color: GOLD,
-              fontSize: 72,
+              fontSize: 40,
               fontWeight: 900,
               lineHeight: 1,
             }}>
               #{rank}
             </div>
-            <div style={{ color: '#888', fontSize: 30 }}>
+            <div style={{ color: '#888', fontSize: 16 }}>
               of {total} members
             </div>
             {userName ? (
-              <div style={{ color: '#555', fontSize: 26, letterSpacing: '0.08em', marginTop: 4 }}>
+              <div style={{ color: '#555', fontSize: 14, letterSpacing: '0.08em', marginTop: 2 }}>
                 {userName}
               </div>
             ) : null}
           </div>
 
-          {/* Join nudge */}
+          {/* Watermark */}
           <div style={{
             color: '#2a2a2a',
-            fontSize: 28,
+            fontSize: 14,
             letterSpacing: '0.2em',
             textTransform: 'uppercase',
             marginTop: 'auto',
-            paddingBottom: 60,
+            paddingBottom: 32,
           }}>
             PITCHLEAGUE.VERCEL.APP
           </div>
@@ -229,8 +229,11 @@ export async function GET(request: NextRequest) {
       </div>
     ),
     {
-      width: 1080,
-      height: 1920,
+      width: 600,
+      height: 1000,
+      headers: {
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      },
     }
   )
 }

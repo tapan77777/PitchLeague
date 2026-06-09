@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { ShareCardData } from '@/types'
 
@@ -33,8 +33,22 @@ export function ShareModal({
   onClose: () => void
 }) {
   const cardUrl = useMemo(() => buildCardUrl(data), [data])
-  const [imgLoaded, setImgLoaded] = useState(false)
+  const [imgState, setImgState] = useState<'loading' | 'loaded' | 'timeout'>('loading')
   const [sharing, setSharing] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 8-second timeout — if image hasn't loaded, show fallback link
+  useEffect(() => {
+    timerRef.current = setTimeout(() => {
+      setImgState(s => s === 'loading' ? 'timeout' : s)
+    }, 8000)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [])
+
+  function handleLoad() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setImgState('loaded')
+  }
 
   async function handleShare() {
     setSharing(true)
@@ -43,23 +57,17 @@ export function ShareModal({
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        // Try to share as file (mobile — saves to camera roll)
         const res = await fetch(cardUrl)
         const blob = await res.blob()
         const file = new File([blob], 'my-prediction.png', { type: 'image/png' })
         if (navigator.canShare?.({ files: [file] })) {
           await navigator.share({ title: 'My FIFA 2026 Prediction', text, files: [file] })
-          setSharing(false)
-          return
+          setSharing(false); return
         }
-        // Fallback: share URL
         await navigator.share({ title: 'My FIFA 2026 Prediction', text, url: data.invite_url })
-        setSharing(false)
-        return
+        setSharing(false); return
       } catch { /* fall through */ }
     }
-
-    // Desktop / no share API: open image in new tab (user saves manually)
     window.open(cardUrl, '_blank')
     setSharing(false)
   }
@@ -79,47 +87,78 @@ export function ShareModal({
 
       <div className="flex flex-col items-center gap-5 px-4 pt-16 pb-10 w-full max-w-sm">
 
-        {/* Label */}
         <p className="text-[10px] font-semibold tracking-[0.25em] uppercase" style={{ color: GOLD }}>
           Your Prediction Card
         </p>
 
-        {/* Card preview — server-rendered PNG */}
+        {/* Card preview */}
         <div
           className="w-full rounded-2xl overflow-hidden border"
-          style={{ borderColor: GOLD + '55', aspectRatio: '9/16', position: 'relative' }}
+          style={{ borderColor: GOLD + '55', aspectRatio: '3/5', position: 'relative', background: '#0a0a0a' }}
         >
-          {!imgLoaded && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a] gap-3">
-              <div className="w-6 h-6 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs text-zinc-600">Generating card…</span>
+          {/* Placeholder shown while loading */}
+          {imgState === 'loading' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+              {/* Mini card skeleton */}
+              <div className="flex flex-col items-center gap-2 opacity-30">
+                <div className="w-24 h-2 rounded bg-[#c9a84c]" />
+                <div className="w-16 h-1 rounded bg-zinc-700" />
+                <div className="flex gap-3 my-3">
+                  <div className="w-8 h-8 rounded bg-zinc-800" />
+                  <div className="w-12 h-8 rounded bg-zinc-700" />
+                  <div className="w-8 h-8 rounded bg-zinc-800" />
+                </div>
+                <div className="w-20 h-1 rounded bg-zinc-800" />
+              </div>
+              <span className="text-[11px] text-zinc-600">Generating…</span>
             </div>
           )}
+
+          {/* Timeout fallback */}
+          {imgState === 'timeout' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+              <span className="text-2xl">⚡</span>
+              <p className="text-xs text-zinc-500">Taking longer than expected.</p>
+              <a
+                href={cardUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-semibold underline underline-offset-2 transition-colors"
+                style={{ color: GOLD }}
+              >
+                Open card in new tab →
+              </a>
+            </div>
+          )}
+
+          {/* The actual server-rendered image — always in DOM so it loads immediately */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cardUrl}
             alt="Your FIFA 2026 prediction card"
-            onLoad={() => setImgLoaded(true)}
+            onLoad={handleLoad}
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              opacity: imgLoaded ? 1 : 0,
-              transition: 'opacity 0.3s',
+              opacity: imgState === 'loaded' ? 1 : 0,
+              transition: 'opacity 0.25s ease',
+              display: 'block',
             }}
           />
         </div>
 
-        {/* Mobile hint */}
-        <p className="text-[10px] text-zinc-600 text-center -mt-1">
-          Long-press the card to save · or tap Share below
-        </p>
+        {imgState === 'loaded' && (
+          <p className="text-[10px] text-zinc-600 text-center -mt-2">
+            Long-press the card to save · or tap Share below
+          </p>
+        )}
 
-        {/* Share button */}
+        {/* Share button — only enabled once loaded */}
         <button
           onClick={handleShare}
-          disabled={sharing || !imgLoaded}
-          className="w-full py-3.5 rounded-xl text-black font-bold tracking-widest transition-all disabled:opacity-50"
+          disabled={sharing || imgState !== 'loaded'}
+          className="w-full py-3.5 rounded-xl text-black font-bold tracking-widest transition-all disabled:opacity-40"
           style={{
             background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
             fontFamily: BEBAS,
@@ -130,7 +169,6 @@ export function ShareModal({
           {sharing ? 'Opening…' : '📤 SHARE PREDICTION'}
         </button>
 
-        {/* Open raw image link */}
         <a
           href={cardUrl}
           target="_blank"
