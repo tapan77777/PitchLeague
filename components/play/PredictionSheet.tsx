@@ -57,14 +57,14 @@ export default function PredictionSheet({
         {/* Teams */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col items-center gap-2 flex-1">
-            <TeamFlag name={teamA} size="lg" />
+            <TeamFlag name={teamA} size="xl" />
             <span className="fifa-score text-xl leading-tight text-[#f0f0f0] text-center">{teamA}</span>
           </div>
           <div className="flex flex-col items-center gap-1 shrink-0 px-4">
             <span className="text-xs font-semibold text-zinc-600 tracking-widest uppercase">Your pick</span>
           </div>
           <div className="flex flex-col items-center gap-2 flex-1">
-            <TeamFlag name={teamB} size="lg" />
+            <TeamFlag name={teamB} size="xl" />
             <span className="fifa-score text-xl leading-tight text-[#f0f0f0] text-center">{teamB}</span>
           </div>
         </div>
