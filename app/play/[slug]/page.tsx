@@ -7,6 +7,9 @@ import { getOrCreateMemberId, getMemberName, hasJoinedLeague } from '@/lib/membe
 import { getLeagueThemeVars, getAccuracy, timeUntilKickoff, isPredictionOpen } from '@/lib/utils'
 import { League, LeagueMember, Match, Prediction } from '@/types'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
+import TeamFlag from '@/components/play/TeamFlag'
+import PredictionSheet from '@/components/play/PredictionSheet'
+import GroupStandings from '@/components/play/GroupStandings'
 import { ShareModal } from '@/components/play/ShareCard'
 import { ShareCardData } from '@/types'
 import { getLeagueShareUrl } from '@/lib/utils'
@@ -22,6 +25,7 @@ interface PageData {
   memberCount: number
   openMatches: Match[]
   recentMatches: Match[]
+  allGroupMatches: Match[]
   predictions: Record<string, Prediction>
   socialProof: Record<string, MatchSocialProof>
 }
@@ -54,13 +58,14 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
       const league = leagueRes.data
       const leagueId = league.id
 
-      const [memberRes, upcomingRes, recentRes, predRes, countRes, allPredsRes] = await Promise.all([
+      const [memberRes, upcomingRes, recentRes, predRes, countRes, allPredsRes, groupMatchesRes] = await Promise.all([
         supabase.from('league_members').select('*').eq('league_id', leagueId).eq('clerk_id', memberId).maybeSingle(),
-        supabase.from('matches').select('*').eq('status', 'upcoming').order('kickoff_time', { ascending: true }).limit(12),
-        supabase.from('matches').select('*').eq('status', 'finished').order('kickoff_time', { ascending: false }).limit(6),
+        supabase.from('matches').select('*').in('status', ['upcoming', 'live']).order('kickoff_time', { ascending: true }).limit(20),
+        supabase.from('matches').select('*').eq('status', 'finished').order('kickoff_time', { ascending: false }).limit(8),
         supabase.from('predictions').select('*').eq('league_id', leagueId).eq('clerk_id', memberId),
         supabase.from('league_members').select('*', { count: 'exact', head: true }).eq('league_id', leagueId),
         supabase.from('predictions').select('match_id, predicted_score_a, predicted_score_b').eq('league_id', leagueId),
+        supabase.from('matches').select('*').eq('stage', 'group').order('kickoff_time', { ascending: true }),
       ])
 
       if (!memberRes.data) { setError('not_member'); return }
@@ -91,6 +96,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         memberCount: countRes.count ?? 0,
         openMatches: upcomingRes.data ?? [],
         recentMatches: recentRes.data ?? [],
+        allGroupMatches: groupMatchesRes.data ?? [],
         predictions: predMap,
         socialProof,
       })
@@ -136,7 +142,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
     )
   }
 
-  const { league, membership, memberRank, openMatches, recentMatches, predictions, socialProof } = data
+  const { league, membership, memberRank, openMatches, recentMatches, allGroupMatches, predictions, socialProof } = data
   const primary = league.primary_color || '#16a34a'
   const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
   const initials = (memberName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
@@ -152,7 +158,6 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
       <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
         style={{ borderBottomColor: '#c9a84c22' }}>
         <div className="flex items-center justify-between max-w-lg mx-auto w-full gap-2">
-          {/* Left: league logo */}
           <div className="shrink-0">
             {league.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -162,13 +167,9 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
                 style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
             )}
           </div>
-
-          {/* Center: league name */}
           <span className="fifa-score text-xl leading-none text-[#f0f0f0] truncate flex-1 text-center">
             {league.name}
           </span>
-
-          {/* Right: rank + avatar */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="fifa-score text-base leading-none" style={{ color: '#c9a84c' }}>
               #{memberRank}
@@ -198,6 +199,14 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
           ))}
         </div>
 
+        {/* ── Group Standings ── */}
+        {allGroupMatches.length > 0 && (
+          <section className="mb-7">
+            <SectionHeader title="GROUP STANDINGS" />
+            <GroupStandings matches={allGroupMatches} />
+          </section>
+        )}
+
         {/* ── Predict Now ── */}
         <section className="mb-8">
           <SectionHeader title="PREDICT NOW" />
@@ -212,7 +221,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
           ) : (
             <div className="space-y-3">
               {openMatches.map(match => (
-                <FifaMatchCard
+                <MatchCard
                   key={match.id}
                   match={match}
                   prediction={predictions[match.id]}
@@ -230,9 +239,9 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         {recentMatches.length > 0 && (
           <section className="mb-8">
             <SectionHeader title="RECENT RESULTS" />
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recentMatches.map(match => (
-                <FifaMatchCard
+                <MatchCard
                   key={match.id}
                   match={match}
                   prediction={predictions[match.id]}
@@ -266,13 +275,10 @@ function SectionHeader({ title }: { title: string }) {
 /* ─────────────────────────── Match Card ─────────────────────────── */
 
 interface ShareContext {
-  league: League
-  memberRank: number
-  memberCount: number
-  memberName: string
+  league: League; memberRank: number; memberCount: number; memberName: string
 }
 
-function FifaMatchCard({
+function MatchCard({
   match, prediction, socialProof, onPredict, onShare, shareContext,
 }: {
   match: Match
@@ -284,13 +290,12 @@ function FifaMatchCard({
 }) {
   const isOpen = isPredictionOpen(match.kickoff_time)
   const hasPrediction = !!prediction
-  const [isEditing, setIsEditing] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
   const [scoreA, setScoreA] = useState(prediction?.predicted_score_a ?? 0)
   const [scoreB, setScoreB] = useState(prediction?.predicted_score_b ?? 0)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
-  // Sync stepper values when prediction changes (after save)
   useEffect(() => {
     if (prediction) {
       setScoreA(prediction.predicted_score_a ?? 0)
@@ -298,21 +303,22 @@ function FifaMatchCard({
     }
   }, [prediction])
 
-  async function handleLock() {
+  const groupLabel = match.group_name ? match.group_name.replace(/^Group\s*/i, '').toUpperCase() : null
+  const stage = groupLabel ? `GROUP ${groupLabel}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
+
+  const kickoffDate = new Date(match.kickoff_time)
+  const dateStr = kickoffDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' })
+
+  async function handleConfirm() {
     setSaving(true)
     try {
       await onPredict(match.id, scoreA, scoreB)
-      setIsEditing(false)
+      setSheetOpen(false)
       setToast(hasPrediction ? 'Updated ✓' : 'Locked in ✓')
-      setTimeout(() => setToast(''), 2000)
+      setTimeout(() => setToast(''), 2500)
     } catch { setToast('Error — try again') }
     finally { setSaving(false) }
   }
-
-  const flagA = match.team_a_flag || '🏴'
-  const flagB = match.team_b_flag || '🏴'
-  const groupLabel = match.group_name ? match.group_name.replace(/^Group\s*/i, '').toUpperCase() : null
-  const stage = groupLabel ? `GROUP ${groupLabel}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
 
   function buildShareData(pred: Prediction): ShareCardData {
     const ctx = shareContext!
@@ -337,66 +343,71 @@ function FifaMatchCard({
     }
   }
 
-  /* FINISHED */
+  /* ── FINISHED ── */
   if (match.status === 'finished') {
     const correct = prediction?.is_correct_winner || prediction?.is_exact_score
-    const noPred = !prediction
-    const borderColor = noPred ? '#333' : correct ? '#2dc653' : '#333'
-    const bgTint = correct ? 'rgba(45,198,83,0.04)' : 'transparent'
-    const opacity = !noPred && !correct ? 0.72 : 1
+    const exact = prediction?.is_exact_score
+    const borderColor = !prediction ? '#2a2a2a' : correct ? '#2dc653' : '#2a2a2a'
 
     return (
-      <div className="match-card overflow-hidden" style={{ borderLeftWidth: 3, borderLeftColor: borderColor, opacity }}>
-        <div className="p-4" style={{ backgroundColor: bgTint }}>
+      <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden"
+        style={{ borderLeftWidth: 3, borderLeftColor: borderColor, opacity: prediction && !correct ? 0.75 : 1 }}>
+        <div className="p-4" style={{ backgroundColor: correct ? 'rgba(45,198,83,0.04)' : '#111' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
-            <span className="text-[10px] font-bold tracking-wider text-zinc-600 uppercase bg-[#222] px-2 py-0.5 rounded-full">FT</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase bg-[#1e1e1e] px-2 py-0.5 rounded-full">FT</span>
           </div>
 
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagA}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_a} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
             </div>
-            <div className="flex flex-col items-center shrink-0">
+            <div className="flex flex-col items-center shrink-0 gap-0.5">
               <div className="flex items-center gap-1">
                 <span className="fifa-score text-4xl text-[#f0f0f0] leading-none">{match.score_a ?? 0}</span>
                 <span className="fifa-score text-2xl text-zinc-600 mx-0.5">—</span>
                 <span className="fifa-score text-4xl text-[#f0f0f0] leading-none">{match.score_b ?? 0}</span>
               </div>
+              <span className="text-[10px] text-zinc-700">Final score</span>
             </div>
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagB}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_b} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
             </div>
           </div>
 
-          {prediction ? (
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#222]">
+          <div className="flex items-center justify-between pt-3 border-t border-[#1e1e1e]">
+            {prediction ? (
               <span className="text-xs text-zinc-600">
-                Your pick: <span className="text-zinc-400 font-medium">
+                Your pick: <span className="text-zinc-400 font-medium tabular-nums">
                   {prediction.predicted_score_a} — {prediction.predicted_score_b}
                 </span>
               </span>
-              {correct ? (
-                <span className="text-xs font-bold text-[#2dc653]">✓ +{prediction.points_earned} pts</span>
+            ) : (
+              <span className="text-xs italic text-zinc-700">No prediction</span>
+            )}
+            {prediction && (
+              correct ? (
+                <span className="text-xs font-bold" style={{ color: '#2dc653' }}>
+                  {exact ? '🎯' : '✓'} +{prediction.points_earned} pts
+                </span>
               ) : (
                 <span className="text-xs font-semibold text-zinc-600">✗ 0 pts</span>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs italic text-zinc-700 mt-3 pt-3 border-t border-[#222]">No prediction made</p>
-          )}
+              )
+            )}
+          </div>
         </div>
       </div>
     )
   }
 
-  /* LIVE */
+  /* ── LIVE ── */
   if (match.status === 'live') {
     return (
-      <div className="match-card overflow-hidden" style={{ borderLeftWidth: 3, borderLeftColor: '#ff2d2d' }}>
-        <div className="p-4">
+      <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden"
+        style={{ borderLeftWidth: 3, borderLeftColor: '#ff2d2d' }}>
+        <div className="p-4 bg-[#111]">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
             <div className="flex items-center gap-1.5">
@@ -404,27 +415,27 @@ function FifaMatchCard({
               <span className="text-[10px] font-bold text-[#ff2d2d] tracking-wider">LIVE</span>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagA}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_a}</span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_a} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center">{match.team_a}</span>
             </div>
-            <div className="flex flex-col items-center shrink-0">
+            <div className="flex flex-col items-center shrink-0 gap-0.5">
               <div className="flex items-center gap-1">
                 <span className="fifa-score text-4xl text-[#ff2d2d] leading-none">{match.score_a ?? 0}</span>
                 <span className="fifa-score text-2xl text-zinc-600 mx-0.5">—</span>
                 <span className="fifa-score text-4xl text-[#ff2d2d] leading-none">{match.score_b ?? 0}</span>
               </div>
-              <span className="text-[10px] text-zinc-600 mt-0.5">In progress</span>
+              <span className="text-[10px] text-zinc-600">In progress</span>
             </div>
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagB}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_b}</span>
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_b} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center">{match.team_b}</span>
             </div>
           </div>
           {prediction && (
-            <p className="text-xs text-zinc-600 mt-3 pt-3 border-t border-[#222]">
-              Your pick: <span className="text-zinc-400">{prediction.predicted_score_a} — {prediction.predicted_score_b}</span>
+            <p className="text-xs text-zinc-600 mt-3 pt-3 border-t border-[#1e1e1e]">
+              Your pick: <span className="text-zinc-400 tabular-nums">{prediction.predicted_score_a} — {prediction.predicted_score_b}</span>
             </p>
           )}
         </div>
@@ -432,188 +443,187 @@ function FifaMatchCard({
     )
   }
 
-  /* LOCKED (has prediction, not editing) */
-  if (hasPrediction && !isEditing) {
+  /* ── LOCKED (has prediction, window still open for editing) ── */
+  if (hasPrediction && !sheetOpen) {
     return (
-      <div className="match-card overflow-hidden" style={{ borderLeftWidth: 3, borderLeftColor: '#c9a84c' }}>
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
-            {isOpen ? (
-              <span className="text-[10px] font-semibold text-amber-500">
-                Closes in {timeUntilKickoff(match.kickoff_time)}
-              </span>
-            ) : (
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Prediction locked</span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagA}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_a}</span>
+      <>
+        <div className="rounded-2xl border border-[#c9a84c33] overflow-hidden"
+          style={{ borderLeftWidth: 3, borderLeftColor: '#c9a84c' }}>
+          <div className="p-4 bg-[#111]">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
+              {isOpen ? (
+                <span className="text-[10px] font-semibold text-amber-500">
+                  Closes in {timeUntilKickoff(match.kickoff_time)}
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-[#c9a84c]">🔒 Locked</span>
+              )}
             </div>
-            <div className="flex flex-col items-center shrink-0 gap-0.5">
-              <div className="flex items-center gap-1">
-                <span className="fifa-score text-4xl leading-none" style={{ color: '#c9a84c' }}>
-                  {prediction.predicted_score_a}
-                </span>
-                <span className="fifa-score text-2xl text-zinc-600 mx-0.5">—</span>
-                <span className="fifa-score text-4xl leading-none" style={{ color: '#c9a84c' }}>
-                  {prediction.predicted_score_b}
-                </span>
+
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex flex-col items-center gap-2 flex-1">
+                <TeamFlag name={match.team_a} size="md" />
+                <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
               </div>
-              <span className="text-[10px] text-zinc-600">Your prediction · 🔒</span>
+              <div className="flex flex-col items-center shrink-0 gap-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="fifa-score text-4xl leading-none" style={{ color: '#c9a84c' }}>
+                    {prediction.predicted_score_a}
+                  </span>
+                  <span className="fifa-score text-2xl text-zinc-600 mx-0.5">—</span>
+                  <span className="fifa-score text-4xl leading-none" style={{ color: '#c9a84c' }}>
+                    {prediction.predicted_score_b}
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-600">Your prediction</span>
+              </div>
+              <div className="flex flex-col items-center gap-2 flex-1">
+                <TeamFlag name={match.team_b} size="md" />
+                <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-1 w-[38%]">
-              <span className="text-4xl leading-none">{flagB}</span>
-              <span className="fifa-score text-xl text-[#f0f0f0] text-center">{match.team_b}</span>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#222]">
-            {socialProof?.total ? (
-              <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
-            ) : <span />}
-            {isOpen && (
-              <button onClick={() => { setIsEditing(true) }}
-                className="text-[11px] font-semibold text-zinc-500 hover:text-[#c9a84c] transition-colors">
-                Edit →
+            {toast && (
+              <div className="text-center text-xs font-bold text-[#2dc653] mb-2">{toast}</div>
+            )}
+
+            <div className="flex items-center justify-between pt-3 border-t border-[#1e1e1e]">
+              {socialProof?.total ? (
+                <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
+              ) : (
+                match.city ? (
+                  <span className="text-[10px] text-zinc-700">📍 {match.city} · {dateStr}</span>
+                ) : <span />
+              )}
+              {isOpen && (
+                <button onClick={() => setSheetOpen(true)}
+                  className="text-[11px] font-semibold text-zinc-500 hover:text-[#c9a84c] transition-colors shrink-0 ml-2">
+                  Edit →
+                </button>
+              )}
+            </div>
+
+            {onShare && shareContext && (
+              <button
+                onClick={() => onShare(buildShareData(prediction))}
+                className="mt-3 w-full py-2.5 rounded-xl text-black font-bold tracking-widest transition-opacity active:opacity-80"
+                style={{
+                  background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
+                  fontFamily: "var(--font-bebas, 'Bebas Neue', sans-serif)",
+                  fontSize: '0.95rem',
+                  letterSpacing: '0.12em',
+                }}
+              >
+                📤 SHARE PREDICTION
               </button>
             )}
           </div>
-
-          {onShare && shareContext && (
-            <button
-              onClick={() => onShare(buildShareData(prediction))}
-              className="mt-3 w-full py-2.5 rounded-xl text-black font-bold tracking-widest transition-opacity active:opacity-80"
-              style={{
-                background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
-                fontFamily: "var(--font-bebas, 'Bebas Neue', sans-serif)",
-                fontSize: '0.95rem',
-                letterSpacing: '0.12em',
-              }}
-            >
-              📤 SHARE PREDICTION
-            </button>
-          )}
         </div>
-      </div>
+
+        {sheetOpen && (
+          <PredictionSheet
+            teamA={match.team_a} teamB={match.team_b}
+            scoreA={scoreA} scoreB={scoreB}
+            onScoreAChange={setScoreA} onScoreBChange={setScoreB}
+            onConfirm={handleConfirm} onClose={() => setSheetOpen(false)}
+            saving={saving} isEdit={hasPrediction}
+          />
+        )}
+      </>
     )
   }
 
-  /* UPCOMING — stepper */
+  /* ── UPCOMING (no prediction yet) — tappable card ── */
   return (
-    <div className="match-card overflow-hidden">
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
-          {isOpen ? (
-            <span className="text-[10px] font-semibold text-amber-500">
-              Closes in {timeUntilKickoff(match.kickoff_time)}
-            </span>
-          ) : (
-            <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Closed</span>
+    <>
+      <button
+        className="w-full text-left rounded-2xl border border-[#1e1e1e] bg-[#111] overflow-hidden transition-all active:scale-[0.98] active:border-[#c9a84c33]"
+        onClick={() => isOpen && setSheetOpen(true)}
+        disabled={!isOpen}
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
+            {isOpen ? (
+              <span className="text-[10px] font-semibold text-amber-500">
+                {timeUntilKickoff(match.kickoff_time)} left
+              </span>
+            ) : (
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Closed</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_a} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
+            </div>
+
+            <div className="flex flex-col items-center shrink-0 gap-1">
+              <span className="fifa-score text-2xl text-zinc-600 leading-none">VS</span>
+              <span className="text-[10px] text-zinc-700">{dateStr}</span>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 flex-1">
+              <TeamFlag name={match.team_b} size="md" />
+              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
+            </div>
+          </div>
+
+          {toast && (
+            <div className="text-center text-xs font-bold text-[#2dc653] mb-2">{toast}</div>
           )}
+
+          <div className="flex items-center justify-between">
+            {match.city ? (
+              <span className="text-[10px] text-zinc-700">📍 {match.city}</span>
+            ) : socialProof?.total ? (
+              <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
+            ) : <span />}
+
+            {isOpen && (
+              <span className="text-[11px] font-bold px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: '#c9a84c22', color: '#c9a84c' }}>
+                Predict →
+              </span>
+            )}
+          </div>
+
+          {socialProof?.total && match.city ? (
+            <div className="mt-2">
+              <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
+            </div>
+          ) : null}
         </div>
+      </button>
 
-        <div className="flex items-center gap-2 mb-5">
-          {/* Team A: flag + name */}
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <span className="text-2xl leading-none shrink-0">{flagA}</span>
-            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_a}</span>
-          </div>
-
-          {/* Steppers */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <ScoreStepper value={scoreA} onChange={setScoreA} disabled={!isOpen || saving} compact />
-            <span className="fifa-score text-lg text-zinc-700 px-0.5">—</span>
-            <ScoreStepper value={scoreB} onChange={setScoreB} disabled={!isOpen || saving} compact />
-          </div>
-
-          {/* Team B: flag + name */}
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-            <span className="text-2xl leading-none shrink-0">{flagB}</span>
-            <span className="fifa-score text-base text-[#f0f0f0] truncate">{match.team_b}</span>
-          </div>
-        </div>
-
-        {toast ? (
-          <div className="w-full py-3 rounded-xl text-center text-sm font-bold text-[#2dc653] bg-[#2dc65311]">
-            {toast}
-          </div>
-        ) : isOpen ? (
-          <button onClick={handleLock} disabled={saving}
-            className="w-full py-3 rounded-xl text-black font-bold tracking-widest text-sm disabled:opacity-50 transition-opacity"
-            style={{ background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
-              fontFamily: "var(--font-bebas, 'Bebas Neue', sans-serif)", fontSize: '1rem', letterSpacing: '0.12em' }}>
-            {saving ? 'SAVING…' : hasPrediction ? 'UPDATE PREDICTION' : 'LOCK IN PREDICTION'}
-          </button>
-        ) : (
-          <div className="w-full py-3 rounded-xl text-center text-xs text-zinc-600 bg-[#161616] border border-[#222]">
-            Prediction window closed
-          </div>
-        )}
-
-        {isEditing && (
-          <button onClick={() => setIsEditing(false)}
-            className="w-full text-center text-xs text-zinc-600 hover:text-zinc-400 mt-2 transition-colors">
-            Cancel
-          </button>
-        )}
-
-        {socialProof?.total ? (
-          <div className="mt-3 pt-3 border-t border-[#222]">
-            <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
-          </div>
-        ) : null}
-
-        {match.venue || match.city ? (
-          <p className="text-[10px] text-zinc-700 mt-2">
-            📍 {[match.city, match.venue].filter(Boolean).join(' · ')}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      {sheetOpen && (
+        <PredictionSheet
+          teamA={match.team_a} teamB={match.team_b}
+          scoreA={scoreA} scoreB={scoreB}
+          onScoreAChange={setScoreA} onScoreBChange={setScoreB}
+          onConfirm={handleConfirm} onClose={() => setSheetOpen(false)}
+          saving={saving} isEdit={hasPrediction}
+        />
+      )}
+    </>
   )
 }
 
 /* ─────────────────────────── Sub-components ─────────────────────────── */
-
-function ScoreStepper({ value, onChange, disabled, compact = false }: {
-  value: number; onChange: (v: number) => void; disabled: boolean; compact?: boolean
-}) {
-  const btn = compact ? 'w-6 h-6 text-xs' : 'w-7 h-7 text-xs'
-  const score = compact ? 'fifa-score text-xl w-5 leading-none' : 'fifa-score text-3xl w-8 leading-none'
-  const gap = compact ? 'gap-1' : 'gap-2'
-  return (
-    <div className={`flex items-center ${gap}`}>
-      <button onClick={() => onChange(Math.max(0, value - 1))} disabled={disabled}
-        className={`${btn} rounded-full border flex items-center justify-center font-bold transition-colors disabled:opacity-30`}
-        style={{ borderColor: '#c9a84c', color: '#c9a84c' }}>
-        −
-      </button>
-      <span className={`${score} text-center text-[#f0f0f0]`}>{value}</span>
-      <button onClick={() => onChange(Math.min(20, value + 1))} disabled={disabled}
-        className={`${btn} rounded-full border flex items-center justify-center font-bold transition-colors disabled:opacity-30`}
-        style={{ borderColor: '#c9a84c', color: '#c9a84c' }}>
-        +
-      </button>
-    </div>
-  )
-}
 
 function SocialProofText({ sp, nameA, nameB }: {
   sp: MatchSocialProof; nameA: string; nameB: string
 }) {
   if (sp.total === 0) return null
   const parts: string[] = []
-  if (sp.teamA > 0) parts.push(`${sp.teamA} picked ${nameA.split(' ')[0]}`)
-  if (sp.teamB > 0) parts.push(`${sp.teamB} picked ${nameB.split(' ')[0]}`)
+  if (sp.teamA > 0) parts.push(`${sp.teamA} → ${nameA.split(' ')[0]}`)
+  if (sp.teamB > 0) parts.push(`${sp.teamB} → ${nameB.split(' ')[0]}`)
   if (sp.draw > 0) parts.push(`${sp.draw} draw`)
   return (
     <p className="text-[10px] text-zinc-700 leading-snug">
-      {parts.join(' · ')} · {sp.total} total
+      {parts.join(' · ')}
     </p>
   )
 }
