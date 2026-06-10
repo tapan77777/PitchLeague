@@ -99,3 +99,24 @@ input[type='number']::-webkit-outer-spin-button {
 .rank-gold {
   box-shadow: 0 0 12px rgba(201, 168, 76, 0.35);
 }
+
+/* ── Match ticker ── */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  animation: ticker 40s linear infinite;
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* ── Bebas heading utility ── */
+.bebas {
+  font-family: var(--font-bebas, 'Bebas Neue', sans-serif);
+  letter-spacing: 0.04em;
+}
