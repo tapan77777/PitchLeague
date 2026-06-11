@@ -267,13 +267,15 @@ export function ShareModal({
     setStatus('generating')
     try {
       const domtoimage = (await import('dom-to-image-more')).default
+      const scale = window.devicePixelRatio || 3
       const blob: Blob = await domtoimage.toBlob(cardRef.current, {
         width: 390,
         height: 692,
         style: {
-          transform: 'scale(1)',
+          transform: `scale(${scale})`,
           transformOrigin: 'top left',
-          borderRadius: '0',
+          width: `${390 / scale}px`,
+          height: `${692 / scale}px`,
         },
         bgcolor: '#0a0a0a',
       })

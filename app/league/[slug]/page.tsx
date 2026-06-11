@@ -6,6 +6,10 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getOrCreateMemberId, getMemberName, hasJoinedLeague, addLeagueToSession } from '@/lib/member'
 
+const GOLD = '#c9a84c'
+const GOLD_LIGHT = '#e8c96d'
+const BEBAS = "'Bebas Neue', 'Impact', sans-serif"
+
 interface LeagueData {
   id: string
   name: string
@@ -18,11 +22,7 @@ interface LeagueData {
   slug: string
 }
 
-export default function LeagueJoinPage({
-  params,
-}: {
-  params: { slug: string }
-}) {
+export default function LeagueJoinPage({ params }: { params: { slug: string } }) {
   const { slug } = params
   const router = useRouter()
 
@@ -30,21 +30,23 @@ export default function LeagueJoinPage({
   const [memberCount, setMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [alreadyJoined, setAlreadyJoined] = useState(false)
+  const [memberName, setMemberName] = useState('')
 
   const [displayName, setDisplayName] = useState('')
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Redirect immediately if already a member; pre-fill name if they've joined elsewhere
   useEffect(() => {
     if (hasJoinedLeague(slug)) {
-      router.replace(`/play/${slug}`)
-      return
+      setAlreadyJoined(true)
+      setMemberName(getMemberName())
+    } else {
+      const savedName = getMemberName()
+      if (savedName) setDisplayName(savedName)
     }
-    const savedName = getMemberName()
-    if (savedName) setDisplayName(savedName)
-  }, [slug, router])
+  }, [slug])
 
   useEffect(() => {
     async function fetchLeague() {
@@ -55,16 +57,7 @@ export default function LeagueJoinPage({
           .eq('slug', slug)
           .maybeSingle()
 
-        if (error) {
-          console.error('[league page] fetch error:', error)
-          setNotFound(true)
-          return
-        }
-        if (!data) {
-          console.log('[league page] no league for slug:', slug)
-          setNotFound(true)
-          return
-        }
+        if (error || !data) { setNotFound(true); return }
 
         setLeague(data as LeagueData)
 
@@ -74,31 +67,26 @@ export default function LeagueJoinPage({
           .eq('league_id', data.id)
 
         setMemberCount(count ?? 0)
-      } catch (err) {
-        console.error('[league page] unexpected error:', err)
+      } catch {
         setNotFound(true)
       } finally {
         setLoading(false)
       }
     }
-
     fetchLeague()
   }, [slug])
 
   useEffect(() => {
-    if (!loading && league) inputRef.current?.focus()
-  }, [loading, league])
+    if (!loading && league && !alreadyJoined) inputRef.current?.focus()
+  }, [loading, league, alreadyJoined])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
     if (!league || !displayName.trim()) return
-
     setJoining(true)
     setJoinError('')
-
     try {
       const member_id = getOrCreateMemberId()
-
       const res = await fetch('/api/leagues/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,15 +96,8 @@ export default function LeagueJoinPage({
           member_id,
         }),
       })
-
       const data = await res.json()
-
-      if (!res.ok) {
-        setJoinError(data.error || 'Failed to join. Please try again.')
-        setJoining(false)
-        return
-      }
-
+      if (!res.ok) { setJoinError(data.error || 'Failed to join. Please try again.'); setJoining(false); return }
       addLeagueToSession(league.slug, displayName.trim())
       router.push(`/play/${slug}`)
     } catch {
@@ -127,176 +108,239 @@ export default function LeagueJoinPage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-7 h-7 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 28, height: 28, border: `2px solid ${GOLD}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       </div>
     )
   }
 
   if (notFound || !league) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center px-5 text-center">
-        <span className="text-5xl mb-4">🏟️</span>
-        <h1 className="text-2xl font-extrabold text-white mb-2">League not found</h1>
-        <p className="text-zinc-500 text-sm mb-6 max-w-xs">
-          This league link may be invalid or the league may have been removed.
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 20px', textAlign: 'center' }}>
+        <span style={{ fontSize: 48, marginBottom: 16 }}>🏟️</span>
+        <h1 style={{ color: '#fff', fontFamily: BEBAS, fontSize: 28, letterSpacing: '0.1em', marginBottom: 8 }}>LEAGUE NOT FOUND</h1>
+        <p style={{ color: '#555', fontSize: 14, marginBottom: 24, maxWidth: 280 }}>
+          This invite link may be invalid or the league has been removed.
         </p>
-        <Link
-          href="/"
-          className="bg-green-500 hover:bg-green-600 text-black font-bold px-6 py-3 rounded-full transition-colors text-sm"
-        >
-          Go to PitchLeague
+        <Link href="/" style={{ background: GOLD, color: '#000', fontFamily: BEBAS, fontSize: 16, letterSpacing: '0.1em', padding: '12px 28px', borderRadius: 999, textDecoration: 'none' }}>
+          GO TO PITCHLEAGUE
         </Link>
       </div>
     )
   }
 
-  const primary = league.primary_color || '#16a34a'
-  const accent = league.accent_color || '#15803d'
+  // Already joined — show welcome back screen
+  if (alreadyJoined) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', textAlign: 'center' }}>
+        <div style={{ fontSize: 56, marginBottom: 16 }}>👋</div>
+        <p style={{ color: '#666', fontFamily: "'Arial', sans-serif", fontSize: 13, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 8 }}>
+          WELCOME BACK
+        </p>
+        <h1 style={{ color: '#fff', fontFamily: BEBAS, fontSize: 36, letterSpacing: '0.15em', marginBottom: 4 }}>
+          {memberName || 'PLAYER'}!
+        </h1>
+        <p style={{ color: '#444', fontSize: 13, fontFamily: "'Arial', sans-serif", marginBottom: 32 }}>
+          You&apos;re already in {league.name}
+        </p>
+        <Link
+          href={`/play/${slug}`}
+          style={{
+            display: 'block', width: '100%', maxWidth: 340,
+            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+            color: '#000', fontFamily: BEBAS, fontSize: 18, letterSpacing: '0.12em',
+            padding: '16px 0', borderRadius: 14, textDecoration: 'none', textAlign: 'center',
+          }}
+        >
+          CONTINUE PREDICTING →
+        </Link>
+      </div>
+    )
+  }
+
+  const primary = league.primary_color || GOLD
 
   return (
-    <div
-      className="min-h-screen bg-zinc-950 text-white"
-      style={{ '--league-primary': primary, '--league-accent': accent } as React.CSSProperties}
-    >
-      {/* Ambient glow */}
-      <div
-        className="absolute top-0 left-0 right-0 h-64 opacity-10 pointer-events-none"
-        style={{ background: `radial-gradient(ellipse at 50% 0%, ${primary} 0%, transparent 70%)` }}
-      />
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', position: 'relative', overflow: 'hidden' }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
 
-      <div className="relative max-w-lg mx-auto px-5 pt-12 pb-20">
+      {/* ── HERO SECTION (top ~40%) ── */}
+      <div style={{
+        position: 'relative',
+        background: `radial-gradient(ellipse at 50% 0%, ${primary}26 0%, transparent 70%), #0f0f0f`,
+        padding: '56px 24px 40px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
+      }}>
+        {/* Background color wash */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `${primary}0d`,
+          pointerEvents: 'none',
+        }} />
 
-        {/* ── Hero ── */}
-        <section className="flex flex-col items-center text-center mb-10">
-          {league.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={league.logo_url}
-              alt={`${league.name} logo`}
-              className="w-16 h-16 rounded-2xl object-cover mb-4 border-2"
-              style={{ borderColor: primary }}
-            />
-          ) : (
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black mb-4 border-2"
-              style={{ backgroundColor: primary + '22', borderColor: primary, color: primary }}
-            >
-              {league.name.charAt(0).toUpperCase()}
+        {/* Logo or initial */}
+        {league.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={league.logo_url}
+            alt={league.name}
+            style={{
+              width: 72, height: 72, borderRadius: '50%', objectFit: 'cover',
+              border: `2px solid ${GOLD}`, marginBottom: 16, position: 'relative', zIndex: 1,
+            }}
+          />
+        ) : (
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: `${GOLD}1a`, border: `2px solid ${GOLD}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: BEBAS, fontSize: 32, color: GOLD,
+            marginBottom: 16, position: 'relative', zIndex: 1,
+          }}>
+            {league.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+
+        {/* FIFA badge */}
+        <p style={{
+          color: GOLD, fontFamily: "'Arial', sans-serif", fontSize: 10,
+          fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase',
+          marginBottom: 10, position: 'relative', zIndex: 1,
+        }}>
+          FIFA WORLD CUP 2026 PREDICTION LEAGUE
+        </p>
+
+        {/* League name */}
+        <h1 style={{
+          fontFamily: BEBAS, fontSize: 38, letterSpacing: '0.15em',
+          color: '#fff', margin: '0 0 12px', lineHeight: 1, textTransform: 'uppercase',
+          position: 'relative', zIndex: 1,
+        }}>
+          {league.name}
+        </h1>
+
+        {/* Member count pill */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: '#1a1a1a', border: '1px solid #2a2a2a',
+          borderRadius: 999, padding: '6px 14px',
+          fontFamily: "'Arial', sans-serif", fontSize: 13, color: '#ccc',
+          marginBottom: league.welcome_message ? 16 : 0,
+          position: 'relative', zIndex: 1,
+        }}>
+          <span>👥</span>
+          <span><strong style={{ color: '#fff' }}>{memberCount}</strong> {memberCount === 1 ? 'member' : 'members'} already playing</span>
+        </div>
+
+        {/* Welcome message */}
+        {(league.welcome_message || league.description) && (
+          <p style={{
+            color: '#777', fontFamily: "'Arial', sans-serif", fontSize: 14,
+            lineHeight: 1.6, maxWidth: 320, marginTop: 14,
+            position: 'relative', zIndex: 1,
+          }}>
+            {league.welcome_message || league.description}
+          </p>
+        )}
+      </div>
+
+      {/* ── JOIN FORM (bottom ~60%) ── */}
+      <div style={{
+        maxWidth: 440, margin: '0 auto',
+        padding: '32px 24px 48px',
+        animation: 'slideUp 0.35s ease-out',
+      }}>
+        <h2 style={{
+          fontFamily: BEBAS, fontSize: 32, letterSpacing: '0.15em',
+          color: GOLD, margin: '0 0 6px', textAlign: 'center',
+        }}>
+          JOIN THE LEAGUE
+        </h2>
+        <p style={{
+          color: '#555', fontFamily: "'Arial', sans-serif", fontSize: 13,
+          textAlign: 'center', marginBottom: 28,
+        }}>
+          Enter your name to start predicting
+        </p>
+
+        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your name"
+            maxLength={30}
+            required
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: '#161616', border: `1.5px solid ${displayName ? GOLD + '88' : '#2a2a2a'}`,
+              borderRadius: 12, padding: '16px 18px',
+              color: '#fff', fontSize: 18,
+              fontFamily: "'Arial', sans-serif",
+              outline: 'none',
+              transition: 'border-color 0.2s',
+            }}
+            onFocus={e => { e.currentTarget.style.borderColor = GOLD }}
+            onBlur={e => { e.currentTarget.style.borderColor = displayName ? GOLD + '88' : '#2a2a2a' }}
+          />
+
+          {joinError && (
+            <p style={{ color: '#e74c3c', fontSize: 12, fontFamily: "'Arial', sans-serif", margin: 0 }}>
+              {joinError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={joining || !displayName.trim()}
+            style={{
+              width: '100%', height: 56, borderRadius: 14, border: 'none',
+              background: joining || !displayName.trim()
+                ? '#2a2a2a'
+                : `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+              color: joining || !displayName.trim() ? '#555' : '#000',
+              fontFamily: BEBAS, fontSize: 20, letterSpacing: '0.12em',
+              cursor: joining || !displayName.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              transition: 'all 0.2s',
+            }}
+          >
+            {joining ? (
+              <>
+                <span style={{ width: 18, height: 18, border: '2px solid #000', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+                JOINING…
+              </>
+            ) : (
+              'JOIN & START PREDICTING →'
+            )}
+          </button>
+        </form>
+
+        <p style={{
+          color: '#333', fontFamily: "'Arial', sans-serif", fontSize: 12,
+          textAlign: 'center', marginTop: 16,
+        }}>
+          Free to join · No account needed
+        </p>
+
+        {/* Feature pills */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 32, flexWrap: 'wrap' }}>
+          {['🎯 Predict scores', '📈 Climb the board', '📲 Share your picks'].map(f => (
+            <div key={f} style={{
+              background: '#161616', border: '1px solid #222', borderRadius: 999,
+              padding: '6px 14px', color: '#555',
+              fontFamily: "'Arial', sans-serif", fontSize: 12,
+            }}>
+              {f}
             </div>
-          )}
+          ))}
+        </div>
 
-          <div
-            className="text-xs font-semibold tracking-widest uppercase mb-3 px-3 py-1 rounded-full border"
-            style={{ color: primary, borderColor: primary + '44', backgroundColor: primary + '11' }}
-          >
-            FIFA 2026 Prediction League
-          </div>
-
-          <h1
-            className="text-3xl sm:text-4xl font-extrabold leading-tight mb-3"
-            style={{ color: primary }}
-          >
-            {league.name}
-          </h1>
-
-          {(league.welcome_message || league.description) && (
-            <p className="text-zinc-400 text-sm sm:text-base leading-relaxed max-w-sm mb-4">
-              {league.welcome_message || league.description}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
-            <span>👥</span>
-            <span>
-              <strong className="text-white">{memberCount}</strong>{' '}
-              {memberCount === 1 ? 'member' : 'members'} joined
-            </span>
-          </div>
-        </section>
-
-        {/* ── Join form ── */}
-        <section className="mb-10">
-          <div
-            className="rounded-2xl border p-6"
-            style={{ borderColor: primary + '33', backgroundColor: primary + '08' }}
-          >
-            <p className="text-lg font-bold mb-1 text-center">Join this league</p>
-            <p className="text-zinc-500 text-sm text-center mb-6">
-              Enter your name to start predicting — no password needed.
-            </p>
-
-            <form onSubmit={handleJoin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold mb-1.5 text-zinc-300">
-                  Your name
-                </label>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="e.g. Rohan, Priya, The Boss…"
-                  maxLength={30}
-                  required
-                  className="w-full bg-zinc-900 border border-zinc-700 focus:border-green-500 rounded-xl px-4 py-3 text-white placeholder-zinc-600 text-sm outline-none transition-colors"
-                />
-              </div>
-
-              {joinError && (
-                <p className="text-red-400 text-xs">{joinError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={joining || !displayName.trim()}
-                className="w-full font-bold py-3.5 rounded-full transition-opacity disabled:opacity-50 text-black flex items-center justify-center gap-2"
-                style={{ backgroundColor: primary }}
-              >
-                {joining ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    Joining…
-                  </>
-                ) : (
-                  '⚽ Join League'
-                )}
-              </button>
-            </form>
-          </div>
-        </section>
-
-        {/* ── Preview ── */}
-        <section>
-          <h2 className="text-center text-sm font-semibold text-zinc-500 uppercase tracking-widest mb-5">
-            What you&apos;ll be doing
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { emoji: '🎯', title: 'Predict Scores', desc: 'Call the exact scoreline before every match.' },
-              { emoji: '📈', title: 'Climb the Leaderboard', desc: 'Earn points. Rise to the top.' },
-              { emoji: '📲', title: 'Share Your Picks', desc: 'Auto-generated cards for Instagram & WhatsApp.' },
-            ].map(({ emoji, title, desc }) => (
-              <div key={title} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-center">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl mx-auto mb-3"
-                  style={{ backgroundColor: primary + '22' }}
-                >
-                  {emoji}
-                </div>
-                <p className="font-bold text-sm mb-1" style={{ color: primary }}>{title}</p>
-                <p className="text-zinc-500 text-xs leading-snug">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <p className="text-center text-zinc-700 text-xs mt-12">
+        <p style={{ color: '#222', fontFamily: "'Arial', sans-serif", fontSize: 11, textAlign: 'center', marginTop: 32 }}>
           Powered by{' '}
-          <Link href="/" className="text-zinc-500 hover:text-white transition-colors">
-            PitchLeague
-          </Link>{' '}
-          · FIFA 2026 ⚽
+          <Link href="/" style={{ color: '#333', textDecoration: 'none' }}>PitchLeague</Link>
+          {' '}· FIFA 2026 ⚽
         </p>
       </div>
     </div>

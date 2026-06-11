@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Trophy, User } from 'lucide-react'
+import { Home, Clock, Trophy, User } from 'lucide-react'
 
 export default function PlayBottomNav({ slug }: { slug: string }) {
   const pathname = usePathname()
@@ -10,6 +10,7 @@ export default function PlayBottomNav({ slug }: { slug: string }) {
 
   const items = [
     { href: base,                  label: 'Home',        icon: Home },
+    { href: `${base}/history`,     label: 'History',     icon: Clock },
     { href: `${base}/leaderboard`, label: 'Leaderboard', icon: Trophy },
     { href: `${base}/profile`,     label: 'Profile',     icon: User },
   ]
