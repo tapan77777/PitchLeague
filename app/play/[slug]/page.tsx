@@ -9,6 +9,7 @@ import { League, LeagueMember, Match, Prediction } from '@/types'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
 import TeamFlag from '@/components/play/TeamFlag'
 import PredictionSheet from '@/components/play/PredictionSheet'
+import PredictionsSheet from '@/components/play/PredictionsSheet'
 import GroupStandings from '@/components/play/GroupStandings'
 import { ShareModal } from '@/components/play/ShareCard'
 import { ShareCardData } from '@/types'
@@ -42,6 +43,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sharePayload, setSharePayload] = useState<ShareCardData | null>(null)
+  const [predictionsMatch, setPredictionsMatch] = useState<Match | null>(null)
 
   useEffect(() => {
     const id = getOrCreateMemberId()
@@ -154,6 +156,15 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
         <ShareModal data={sharePayload} onClose={() => setSharePayload(null)} />
       )}
 
+      {predictionsMatch && (
+        <PredictionsSheet
+          match={predictionsMatch}
+          leagueId={league.id}
+          memberId={memberId}
+          onClose={() => setPredictionsMatch(null)}
+        />
+      )}
+
       {/* ── Top banner ── */}
       <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
         style={{ borderBottomColor: '#c9a84c22' }}>
@@ -229,6 +240,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
                   onPredict={handlePredict}
                   onShare={setSharePayload}
                   shareContext={{ league, memberRank, memberCount: data.memberCount, memberName }}
+                  onViewPredictions={setPredictionsMatch}
                 />
               ))}
             </div>
@@ -249,6 +261,7 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
                   onPredict={handlePredict}
                   onShare={setSharePayload}
                   shareContext={{ league, memberRank, memberCount: data.memberCount, memberName }}
+                  onViewPredictions={setPredictionsMatch}
                 />
               ))}
             </div>
@@ -272,6 +285,36 @@ function SectionHeader({ title }: { title: string }) {
   )
 }
 
+/* ─────────────────────────── Predictions pill ─────────────────────────── */
+
+function PredictionsPill({
+  count, status, onClick,
+}: {
+  count: number; status: string; onClick: () => void
+}) {
+  return (
+    <div
+      className="border-t border-[#161616] bg-[#0e0e0e] px-4 py-2.5 flex items-center justify-center"
+    >
+      {count === 0 ? (
+        <p className="text-[10px] text-zinc-800 text-center">Be the first to predict! 🎯</p>
+      ) : (
+        <button
+          onClick={(e) => { e.stopPropagation(); onClick() }}
+          className="text-[11px] font-semibold transition-colors"
+          style={{ color: status === 'live' ? '#ff2d2d' : '#c9a84c', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          {status === 'live'
+            ? `👥 ${count} live predictions →`
+            : status === 'finished'
+              ? `👥 ${count} predictions · See results →`
+              : `👥 ${count} predictions · See all →`}
+        </button>
+      )}
+    </div>
+  )
+}
+
 /* ─────────────────────────── Match Card ─────────────────────────── */
 
 interface ShareContext {
@@ -279,7 +322,7 @@ interface ShareContext {
 }
 
 function MatchCard({
-  match, prediction, socialProof, onPredict, onShare, shareContext,
+  match, prediction, socialProof, onPredict, onShare, shareContext, onViewPredictions,
 }: {
   match: Match
   prediction?: Prediction
@@ -287,6 +330,7 @@ function MatchCard({
   onPredict: (matchId: string, a: number, b: number) => Promise<void>
   onShare?: (data: ShareCardData) => void
   shareContext?: ShareContext
+  onViewPredictions: (match: Match) => void
 }) {
   const isOpen = isPredictionOpen(match.kickoff_time)
   const hasPrediction = !!prediction
@@ -305,9 +349,9 @@ function MatchCard({
 
   const groupLabel = match.group_name ? match.group_name.replace(/^Group\s*/i, '').toUpperCase() : null
   const stage = groupLabel ? `GROUP ${groupLabel}` : (match.stage || 'MATCH').replace(/_/g, ' ').toUpperCase()
-
   const kickoffDate = new Date(match.kickoff_time)
   const dateStr = kickoffDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' })
+  const predCount = socialProof?.total ?? 0
 
   async function handleConfirm() {
     setSaving(true)
@@ -357,7 +401,6 @@ function MatchCard({
             <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
             <span className="text-[10px] font-bold text-zinc-500 uppercase bg-[#1e1e1e] px-2 py-0.5 rounded-full">FT</span>
           </div>
-
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex flex-col items-center gap-2 flex-1">
               <TeamFlag name={match.team_a} size="md" />
@@ -376,7 +419,6 @@ function MatchCard({
               <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
             </div>
           </div>
-
           <div className="flex items-center justify-between pt-3 border-t border-[#1e1e1e]">
             {prediction ? (
               <span className="text-xs text-zinc-600">
@@ -398,6 +440,7 @@ function MatchCard({
             )}
           </div>
         </div>
+        <PredictionsPill count={predCount} status="finished" onClick={() => onViewPredictions(match)} />
       </div>
     )
   }
@@ -439,11 +482,12 @@ function MatchCard({
             </p>
           )}
         </div>
+        <PredictionsPill count={predCount} status="live" onClick={() => onViewPredictions(match)} />
       </div>
     )
   }
 
-  /* ── LOCKED (has prediction, window still open for editing) ── */
+  /* ── LOCKED (has prediction, upcoming) ── */
   if (hasPrediction && !sheetOpen) {
     return (
       <>
@@ -460,7 +504,6 @@ function MatchCard({
                 <span className="text-[10px] font-semibold text-[#c9a84c]">🔒 Locked</span>
               )}
             </div>
-
             <div className="flex items-center justify-between gap-3 mb-3">
               <div className="flex flex-col items-center gap-2 flex-1">
                 <TeamFlag name={match.team_a} size="md" />
@@ -483,11 +526,9 @@ function MatchCard({
                 <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
               </div>
             </div>
-
             {toast && (
               <div className="text-center text-xs font-bold text-[#2dc653] mb-2">{toast}</div>
             )}
-
             <div className="flex items-center justify-between pt-3 border-t border-[#1e1e1e]">
               {socialProof?.total ? (
                 <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
@@ -503,7 +544,6 @@ function MatchCard({
                 </button>
               )}
             </div>
-
             {onShare && shareContext && (
               <button
                 onClick={() => onShare(buildShareData(prediction))}
@@ -511,14 +551,14 @@ function MatchCard({
                 style={{
                   background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
                   fontFamily: "var(--font-bebas, 'Bebas Neue', sans-serif)",
-                  fontSize: '0.95rem',
-                  letterSpacing: '0.12em',
+                  fontSize: '0.95rem', letterSpacing: '0.12em',
                 }}
               >
                 📤 SHARE PREDICTION
               </button>
             )}
           </div>
+          <PredictionsPill count={predCount} status={match.status} onClick={() => onViewPredictions(match)} />
         </div>
 
         {sheetOpen && (
@@ -534,69 +574,67 @@ function MatchCard({
     )
   }
 
-  /* ── UPCOMING (no prediction yet) — tappable card ── */
+  /* ── UPCOMING (no prediction yet) ── */
   return (
     <>
-      <button
-        className="w-full text-left rounded-2xl border border-[#1e1e1e] bg-[#111] overflow-hidden transition-all active:scale-[0.98] active:border-[#c9a84c33]"
-        onClick={() => isOpen && setSheetOpen(true)}
-        disabled={!isOpen}
-      >
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
-            {isOpen ? (
-              <span className="text-[10px] font-semibold text-amber-500">
-                {timeUntilKickoff(match.kickoff_time)} left
-              </span>
-            ) : (
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Closed</span>
+      {/* Outer div keeps border-radius; inner button is the tappable area */}
+      <div className="rounded-2xl border border-[#1e1e1e] overflow-hidden">
+        <button
+          className="w-full text-left bg-[#111] transition-all active:opacity-90 active:bg-[#161616]"
+          onClick={() => isOpen && setSheetOpen(true)}
+          disabled={!isOpen}
+          style={{ display: 'block' }}
+        >
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">{stage}</span>
+              {isOpen ? (
+                <span className="text-[10px] font-semibold text-amber-500">
+                  {timeUntilKickoff(match.kickoff_time)} left
+                </span>
+              ) : (
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Closed</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex flex-col items-center gap-2 flex-1">
+                <TeamFlag name={match.team_a} size="md" />
+                <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
+              </div>
+              <div className="flex flex-col items-center shrink-0 gap-1">
+                <span className="fifa-score text-2xl text-zinc-600 leading-none">VS</span>
+                <span className="text-[10px] text-zinc-700">{dateStr}</span>
+              </div>
+              <div className="flex flex-col items-center gap-2 flex-1">
+                <TeamFlag name={match.team_b} size="md" />
+                <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
+              </div>
+            </div>
+            {toast && (
+              <div className="text-center text-xs font-bold text-[#2dc653] mb-2">{toast}</div>
             )}
+            <div className="flex items-center justify-between">
+              {match.city ? (
+                <span className="text-[10px] text-zinc-700">📍 {match.city}</span>
+              ) : socialProof?.total ? (
+                <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
+              ) : <span />}
+              {isOpen && (
+                <span className="text-[11px] font-bold px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: '#c9a84c22', color: '#c9a84c' }}>
+                  Predict →
+                </span>
+              )}
+            </div>
+            {socialProof?.total && match.city ? (
+              <div className="mt-2">
+                <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
+              </div>
+            ) : null}
           </div>
-
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex flex-col items-center gap-2 flex-1">
-              <TeamFlag name={match.team_a} size="md" />
-              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_a}</span>
-            </div>
-
-            <div className="flex flex-col items-center shrink-0 gap-1">
-              <span className="fifa-score text-2xl text-zinc-600 leading-none">VS</span>
-              <span className="text-[10px] text-zinc-700">{dateStr}</span>
-            </div>
-
-            <div className="flex flex-col items-center gap-2 flex-1">
-              <TeamFlag name={match.team_b} size="md" />
-              <span className="fifa-score text-lg text-[#f0f0f0] text-center leading-tight">{match.team_b}</span>
-            </div>
-          </div>
-
-          {toast && (
-            <div className="text-center text-xs font-bold text-[#2dc653] mb-2">{toast}</div>
-          )}
-
-          <div className="flex items-center justify-between">
-            {match.city ? (
-              <span className="text-[10px] text-zinc-700">📍 {match.city}</span>
-            ) : socialProof?.total ? (
-              <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
-            ) : <span />}
-
-            {isOpen && (
-              <span className="text-[11px] font-bold px-3 py-1.5 rounded-full"
-                style={{ backgroundColor: '#c9a84c22', color: '#c9a84c' }}>
-                Predict →
-              </span>
-            )}
-          </div>
-
-          {socialProof?.total && match.city ? (
-            <div className="mt-2">
-              <SocialProofText sp={socialProof} nameA={match.team_a} nameB={match.team_b} />
-            </div>
-          ) : null}
-        </div>
-      </button>
+        </button>
+        <PredictionsPill count={predCount} status={match.status} onClick={() => onViewPredictions(match)} />
+      </div>
 
       {sheetOpen && (
         <PredictionSheet
