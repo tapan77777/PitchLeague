@@ -7,8 +7,8 @@ import { ShareCardData } from '@/types'
 const GOLD = '#c9a84c'
 const GOLD_LIGHT = '#e8c96d'
 const BEBAS = "'Bebas Neue', 'Impact', sans-serif"
+const SANS = "'Arial', 'Helvetica Neue', sans-serif"
 
-// The visual card rendered at exactly 390×692 (Instagram story ratio)
 function PredictionCard({ data }: { data: ShareCardData }) {
   const scoreA = data.predicted_score_a ?? 0
   const scoreB = data.predicted_score_b ?? 0
@@ -19,156 +19,221 @@ function PredictionCard({ data }: { data: ShareCardData }) {
         width: 390,
         height: 692,
         background: '#0a0a0a',
-        border: `3px solid ${GOLD}`,
-        borderRadius: 24,
+        border: `2px solid ${GOLD}`,
+        borderRadius: 16,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '32px 28px 24px',
+        padding: '28px 24px 20px',
         boxSizing: 'border-box',
-        fontFamily: BEBAS,
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* Subtle radial glow */}
+      {/* Background radial glow */}
       <div style={{
         position: 'absolute',
-        top: -80,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: 320,
-        height: 320,
-        borderRadius: '50%',
-        background: `radial-gradient(circle, ${GOLD}22 0%, transparent 70%)`,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.15) 0%, transparent 60%)',
         pointerEvents: 'none',
+        zIndex: 0,
       }} />
 
-      {/* Top: league name */}
-      <div style={{ textAlign: 'center', zIndex: 1 }}>
+      {/* ── 1. TOP SECTION ── */}
+      <div style={{ textAlign: 'center', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        {/* Gold pill badge */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          background: 'rgba(201,168,76,0.12)',
+          border: `1px solid ${GOLD}55`,
+          borderRadius: 999,
+          padding: '5px 14px',
+        }}>
+          <span style={{ fontSize: 11 }}>⚽</span>
+          <span style={{
+            color: GOLD,
+            fontSize: 10,
+            letterSpacing: '0.22em',
+            fontFamily: SANS,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+          }}>
+            FIFA WORLD CUP 2026
+          </span>
+        </div>
+
+        {/* League name */}
         <div style={{
           color: GOLD,
-          fontSize: 22,
-          letterSpacing: '0.2em',
+          fontSize: 28,
+          letterSpacing: '0.3em',
           fontFamily: BEBAS,
+          fontWeight: 700,
           textTransform: 'uppercase',
           lineHeight: 1,
+          textAlign: 'center',
+          paddingRight: '0.3em', // compensate letter-spacing on last char
         }}>
           {data.league_name}
         </div>
-        <div style={{
-          color: '#666',
-          fontSize: 11,
-          letterSpacing: '0.18em',
-          marginTop: 6,
-          fontFamily: "'Arial', sans-serif",
-          textTransform: 'uppercase',
-        }}>
-          FIFA WORLD CUP 2026
-        </div>
       </div>
 
-      {/* Teams & flags */}
+      {/* ── 2. TEAMS SECTION ── */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%',
         zIndex: 1,
+        flex: '0 0 auto',
       }}>
         {/* Team A */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flex: 1 }}>
-          <span style={{ fontSize: 80, lineHeight: 1 }}>{data.team_a_flag || '🏳️'}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+          <span style={{ fontSize: 80, lineHeight: 1, display: 'block' }}>{data.team_a_flag || '🏳️'}</span>
           <span style={{
             color: '#f0f0f0',
             fontSize: 18,
-            letterSpacing: '0.12em',
+            letterSpacing: '0.1em',
             fontFamily: BEBAS,
+            fontWeight: 700,
             textAlign: 'center',
             textTransform: 'uppercase',
+            lineHeight: 1.1,
           }}>
             {data.team_a}
           </span>
         </div>
 
-        {/* Score */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, padding: '0 8px' }}>
+        {/* Score + label */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, gap: 4 }}>
+          {/* Score in one row */}
           <div style={{
             color: GOLD,
-            fontSize: 120,
+            fontSize: 72,
             fontFamily: BEBAS,
-            lineHeight: 0.9,
-            letterSpacing: '-0.02em',
+            fontWeight: 900,
+            lineHeight: 1,
+            letterSpacing: '0.05em',
+            whiteSpace: 'nowrap',
           }}>
-            {scoreA}–{scoreB}
+            {scoreA} — {scoreB}
+          </div>
+          {/* MY PREDICTION label */}
+          <div style={{
+            color: '#555',
+            fontSize: 10,
+            letterSpacing: '0.25em',
+            fontFamily: SANS,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+          }}>
+            MY PREDICTION
           </div>
         </div>
 
         {/* Team B */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, flex: 1 }}>
-          <span style={{ fontSize: 80, lineHeight: 1 }}>{data.team_b_flag || '🏳️'}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+          <span style={{ fontSize: 80, lineHeight: 1, display: 'block' }}>{data.team_b_flag || '🏳️'}</span>
           <span style={{
             color: '#f0f0f0',
             fontSize: 18,
-            letterSpacing: '0.12em',
+            letterSpacing: '0.1em',
             fontFamily: BEBAS,
+            fontWeight: 700,
             textAlign: 'center',
             textTransform: 'uppercase',
+            lineHeight: 1.1,
           }}>
             {data.team_b}
           </span>
         </div>
       </div>
 
-      {/* Divider */}
+      {/* ── 3. DIVIDER ── */}
       <div style={{
-        width: '100%',
+        width: '60%',
         height: 1,
-        background: `linear-gradient(to right, transparent, ${GOLD}66, transparent)`,
+        background: `linear-gradient(to right, transparent, ${GOLD}4d, transparent)`,
         zIndex: 1,
+        flexShrink: 0,
       }} />
 
-      {/* MY PREDICTION label + rank */}
-      <div style={{ textAlign: 'center', zIndex: 1 }}>
+      {/* ── 4. BOTTOM SECTION ── */}
+      <div style={{ textAlign: 'center', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
         <div style={{
           color: '#555',
-          fontSize: 11,
+          fontSize: 10,
           letterSpacing: '0.25em',
-          fontFamily: "'Arial', sans-serif",
+          fontFamily: SANS,
+          fontWeight: 700,
           textTransform: 'uppercase',
-          marginBottom: 6,
         }}>
-          MY PREDICTION
+          CURRENTLY
         </div>
         <div style={{
           color: GOLD_LIGHT,
-          fontSize: 28,
+          fontSize: 32,
           fontFamily: BEBAS,
-          letterSpacing: '0.1em',
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          lineHeight: 1,
+          textTransform: 'uppercase',
         }}>
-          Currently #{data.user_rank} of {data.total_members}
+          #{data.user_rank} OF {data.total_members} MEMBERS
         </div>
         <div style={{
-          color: '#888',
-          fontSize: 13,
-          fontFamily: "'Arial', sans-serif",
-          marginTop: 4,
+          color: '#666',
+          fontSize: 12,
+          fontFamily: SANS,
+          letterSpacing: '0.08em',
         }}>
           {data.user_name}
         </div>
       </div>
 
-      {/* Watermark */}
+      {/* ── 5. LINK PILL ── */}
       <div style={{
-        color: '#3a3a3a',
-        fontSize: 12,
-        letterSpacing: '0.15em',
-        fontFamily: "'Arial', sans-serif",
-        textTransform: 'lowercase',
+        zIndex: 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        background: '#1a1a1a',
+        border: `1px solid ${GOLD}`,
+        borderRadius: 999,
+        padding: '7px 16px',
+        maxWidth: '100%',
+      }}>
+        <span style={{ fontSize: 12 }}>🏆</span>
+        <span style={{
+          color: GOLD,
+          fontSize: 11,
+          fontFamily: SANS,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          Join the league → {data.invite_url.replace(/^https?:\/\//, '')}
+        </span>
+      </div>
+
+      {/* ── 6. WATERMARK ── */}
+      <div style={{
+        color: '#333',
+        fontSize: 9,
+        letterSpacing: '0.18em',
+        fontFamily: SANS,
+        textTransform: 'uppercase',
         zIndex: 1,
       }}>
-        pitchleague.vercel.app
+        PITCHLEAGUE.VERCEL.APP
       </div>
     </div>
   )
@@ -202,6 +267,7 @@ export function ShareModal({
       })
 
       const file = new File([blob], 'my-prediction.png', { type: 'image/png' })
+      const shareText = `I predicted ${data.team_a} ${scoreA}-${scoreB} ${data.team_b}! Can you beat my prediction? Join ${data.league_name} → ${data.invite_url}`
 
       if (
         typeof navigator !== 'undefined' &&
@@ -211,10 +277,9 @@ export function ShareModal({
         await navigator.share({
           files: [file],
           title: 'My FIFA 2026 Prediction',
-          text: `I predicted ${data.team_a} ${scoreA}-${scoreB} ${data.team_b}! Join my league 👇`,
+          text: shareText,
         })
       } else {
-        // Download fallback
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -229,7 +294,6 @@ export function ShareModal({
     }
   }
 
-  // Scale the 390px card to fit within the modal preview area
   const previewScale = Math.min(1, (typeof window !== 'undefined' ? Math.min(window.innerWidth - 48, 360) : 360) / 390)
 
   return (
@@ -253,13 +317,13 @@ export function ShareModal({
           Your Prediction Card
         </p>
 
-        {/* Card preview — scaled to fit screen, full-res off-screen for capture */}
+        {/* Scaled preview wrapper */}
         <div
           style={{
             width: 390 * previewScale,
             height: 692 * previewScale,
             overflow: 'hidden',
-            borderRadius: 16,
+            borderRadius: 12,
             flexShrink: 0,
           }}
         >
@@ -278,7 +342,7 @@ export function ShareModal({
         </div>
 
         <p className="text-[10px] text-zinc-600 text-center -mt-1">
-          Tap SAVE &amp; SHARE to post to Instagram stories
+          Tap SAVE &amp; SHARE — native share sheet opens with image ready
         </p>
 
         <button
