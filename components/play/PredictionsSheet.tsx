@@ -69,17 +69,28 @@ export default function PredictionsSheet({
       }
       setLoading(true)
       try {
-        const [predsRes, membersRes] = await Promise.all([
-          supabase
-            .from('predictions')
-            .select(`
-              predicted_score_a, predicted_score_b,
-              points_earned, is_correct_winner, is_exact_score,
-              clerk_id,
-              league_members!inner(display_name, rank)
-            `)
-            .eq('match_id', match.id)
-            .eq('league_id', leagueId),
+        console.log('Fetching predictions for match:', match.id, 'league:', leagueId)
+
+        // Step 1 — fetch predictions flat (no join)
+        const { data: predsData, error: predError } = await supabase
+          .from('predictions')
+          .select('*')
+          .eq('match_id', match.id)
+          .eq('league_id', leagueId)
+
+        console.log('predictions:', predsData, predError)
+
+        // Step 2 — fetch member info for those clerk_ids + all members
+        const clerkIds = (predsData ?? []).map((p) => p.clerk_id)
+
+        const [membersRes, allMembersRes] = await Promise.all([
+          clerkIds.length > 0
+            ? supabase
+                .from('league_members')
+                .select('clerk_id, display_name, rank, total_points')
+                .eq('league_id', leagueId)
+                .in('clerk_id', clerkIds)
+            : Promise.resolve({ data: [] }),
           supabase
             .from('league_members')
             .select('clerk_id, display_name, rank')
@@ -87,14 +98,15 @@ export default function PredictionsSheet({
             .order('rank', { ascending: true }),
         ])
 
-        const preds: PredEntry[] = (predsRes.data ?? []).map((p) => {
-          const lm = (Array.isArray(p.league_members) ? p.league_members[0] : p.league_members) as {
-            display_name: string; rank: number
-          } | null
+        // Step 3 — merge
+        const memberMap = new Map((membersRes.data ?? []).map((m) => [m.clerk_id, m]))
+
+        const preds: PredEntry[] = (predsData ?? []).map((p) => {
+          const m = memberMap.get(p.clerk_id)
           return {
             clerk_id: p.clerk_id,
-            display_name: lm?.display_name ?? 'Unknown',
-            rank: lm?.rank ?? 999,
+            display_name: m?.display_name ?? 'Unknown',
+            rank: m?.rank ?? 999,
             predicted_score_a: p.predicted_score_a ?? 0,
             predicted_score_b: p.predicted_score_b ?? 0,
             points_earned: p.points_earned ?? 0,
@@ -104,7 +116,7 @@ export default function PredictionsSheet({
         }).sort((a, b) => a.rank - b.rank)
 
         const predictedIds = new Set(preds.map((p) => p.clerk_id))
-        const nonPreds: MemberEntry[] = (membersRes.data ?? [])
+        const nonPreds: MemberEntry[] = (allMembersRes.data ?? [])
           .filter((m) => !predictedIds.has(m.clerk_id))
           .map((m) => ({ clerk_id: m.clerk_id, display_name: m.display_name, rank: m.rank }))
 
