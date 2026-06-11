@@ -6,234 +6,244 @@ import { ShareCardData } from '@/types'
 
 const GOLD = '#c9a84c'
 const GOLD_LIGHT = '#e8c96d'
-const BEBAS = "'Bebas Neue', 'Impact', sans-serif"
-const SANS = "'Arial', 'Helvetica Neue', sans-serif"
 
 function PredictionCard({ data }: { data: ShareCardData }) {
   const scoreA = data.predicted_score_a ?? 0
   const scoreB = data.predicted_score_b ?? 0
+  const leagueUrl = data.invite_url.replace(/^https?:\/\//, '')
 
   return (
     <div
       style={{
+        position: 'relative',
         width: 390,
         height: 692,
-        background: '#0a0a0a',
+        overflow: 'hidden',
         border: `2px solid ${GOLD}`,
         borderRadius: 16,
+        background: '#0a0a0a',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '28px 24px 20px',
+        padding: '24px 20px',
         boxSizing: 'border-box',
-        position: 'relative',
-        overflow: 'hidden',
       }}
     >
-      {/* Background radial glow */}
+      {/* Corner accent — top-left red */}
       <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.15) 0%, transparent 60%)',
+        position: 'absolute', top: 0, left: 0,
+        width: 200, height: 200,
+        background: 'linear-gradient(135deg, #c0392b 0%, transparent 70%)',
+        opacity: 0.8,
         pointerEvents: 'none',
-        zIndex: 0,
+      }} />
+      {/* Corner accent — top-right purple */}
+      <div style={{
+        position: 'absolute', top: 0, right: 0,
+        width: 160, height: 160,
+        background: 'linear-gradient(225deg, #6c3483 0%, transparent 70%)',
+        opacity: 0.6,
+        pointerEvents: 'none',
+      }} />
+      {/* Corner accent — bottom-left teal */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0,
+        width: 160, height: 160,
+        background: 'linear-gradient(45deg, #0e6655 0%, transparent 70%)',
+        opacity: 0.7,
+        pointerEvents: 'none',
+      }} />
+      {/* Corner accent — bottom-right blue */}
+      <div style={{
+        position: 'absolute', bottom: 0, right: 0,
+        width: 200, height: 200,
+        background: 'linear-gradient(315deg, #1a5276 0%, transparent 70%)',
+        opacity: 0.8,
+        pointerEvents: 'none',
       }} />
 
-      {/* ── 1. TOP SECTION ── */}
-      <div style={{ textAlign: 'center', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-        {/* Gold pill badge */}
+      {/* ── SECTION 1: TOP ── */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        paddingTop: 8, zIndex: 1,
+      }}>
+        <div style={{ fontSize: 36, marginBottom: 4, lineHeight: 1 }}>🏆</div>
         <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          background: 'rgba(201,168,76,0.12)',
-          border: `1px solid ${GOLD}55`,
-          borderRadius: 999,
-          padding: '5px 14px',
+          fontFamily: 'Arial, sans-serif', fontSize: 10, fontWeight: 700,
+          color: GOLD, letterSpacing: 3, marginBottom: 8, textTransform: 'uppercase',
         }}>
-          <span style={{ fontSize: 11 }}>⚽</span>
-          <span style={{
-            color: GOLD,
-            fontSize: 10,
-            letterSpacing: '0.22em',
-            fontFamily: SANS,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-          }}>
-            FIFA WORLD CUP 2026
-          </span>
+          FIFA WORLD CUP 2026
         </div>
-
-        {/* League name */}
         <div style={{
-          color: GOLD,
-          fontSize: 28,
-          letterSpacing: '0.3em',
-          fontFamily: BEBAS,
-          fontWeight: 700,
+          fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 900,
+          color: '#ffffff', letterSpacing: 3, textAlign: 'center', marginBottom: 2,
           textTransform: 'uppercase',
-          lineHeight: 1,
-          textAlign: 'center',
-          paddingRight: '0.3em', // compensate letter-spacing on last char
         }}>
           {data.league_name}
         </div>
-      </div>
-
-      {/* ── 2. TEAMS SECTION ── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        width: '100%',
-        zIndex: 1,
-        flex: '0 0 auto',
-      }}>
-        {/* Team A */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 80, lineHeight: 1, display: 'block' }}>{data.team_a_flag || '🏳️'}</span>
-          <span style={{
-            color: '#f0f0f0',
-            fontSize: 18,
-            letterSpacing: '0.1em',
-            fontFamily: BEBAS,
-            fontWeight: 700,
-            textAlign: 'center',
-            textTransform: 'uppercase',
-            lineHeight: 1.1,
-          }}>
-            {data.team_a}
-          </span>
+        <div style={{
+          fontFamily: 'Arial, sans-serif', fontSize: 12, color: GOLD, letterSpacing: 4,
+          textTransform: 'uppercase',
+        }}>
+          FIFA LEAGUE
         </div>
-
-        {/* Score + label */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, gap: 4 }}>
-          {/* Score in one row */}
-          <div style={{
-            color: GOLD,
-            fontSize: 72,
-            fontFamily: BEBAS,
-            fontWeight: 900,
-            lineHeight: 1,
-            letterSpacing: '0.05em',
-            whiteSpace: 'nowrap',
-          }}>
-            {scoreA} — {scoreB}
-          </div>
-          {/* MY PREDICTION label */}
-          <div style={{
-            color: '#555',
-            fontSize: 10,
-            letterSpacing: '0.25em',
-            fontFamily: SANS,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-          }}>
-            MY PREDICTION
-          </div>
-        </div>
-
-        {/* Team B */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
-          <span style={{ fontSize: 80, lineHeight: 1, display: 'block' }}>{data.team_b_flag || '🏳️'}</span>
-          <span style={{
-            color: '#f0f0f0',
-            fontSize: 18,
-            letterSpacing: '0.1em',
-            fontFamily: BEBAS,
-            fontWeight: 700,
-            textAlign: 'center',
-            textTransform: 'uppercase',
-            lineHeight: 1.1,
-          }}>
-            {data.team_b}
-          </span>
+        {/* MY PREDICTION pill */}
+        <div style={{
+          background: 'rgba(201,168,76,0.15)',
+          border: '1px solid rgba(201,168,76,0.3)',
+          borderRadius: 12,
+          padding: '4px 16px',
+          marginTop: 8,
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 9, color: GOLD, letterSpacing: 3, textTransform: 'uppercase',
+        }}>
+          MY PREDICTION
         </div>
       </div>
 
-      {/* ── 3. DIVIDER ── */}
-      <div style={{
-        width: '60%',
-        height: 1,
-        background: `linear-gradient(to right, transparent, ${GOLD}4d, transparent)`,
-        zIndex: 1,
-        flexShrink: 0,
-      }} />
+      {/* ── SECTION 2: TEAMS & SCORE ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', zIndex: 1 }}>
+        {/* Separator */}
+        <div style={{ width: '80%', height: 1, background: '#222', margin: '12px 0' }} />
 
-      {/* ── 4. BOTTOM SECTION ── */}
-      <div style={{ textAlign: 'center', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        {/* Teams row */}
         <div style={{
-          color: '#555',
-          fontSize: 10,
-          letterSpacing: '0.25em',
-          fontFamily: SANS,
-          fontWeight: 700,
-          textTransform: 'uppercase',
+          display: 'flex', flexDirection: 'row', alignItems: 'center',
+          justifyContent: 'space-between', width: '100%',
         }}>
-          CURRENTLY
+          {/* Team A */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+            <span style={{ fontSize: 52, lineHeight: 1 }}>{data.team_a_flag || '🏳️'}</span>
+            <span style={{
+              fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
+              color: '#ffffff', letterSpacing: 2, marginTop: 6,
+              textTransform: 'uppercase', textAlign: 'center',
+            }}>
+              {data.team_a}
+            </span>
+          </div>
+
+          {/* Score */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{
+              fontFamily: "'Arial Black', Arial, sans-serif",
+              fontSize: 64, fontWeight: 900,
+              color: GOLD, lineHeight: 1,
+              letterSpacing: '-0.02em',
+            }}>
+              {scoreA}-{scoreB}
+            </div>
+            <div style={{
+              fontFamily: 'Arial, sans-serif',
+              fontSize: 8, color: '#555', letterSpacing: 2, textTransform: 'uppercase',
+            }}>
+              MY PREDICTION
+            </div>
+          </div>
+
+          {/* Team B */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+            <span style={{ fontSize: 52, lineHeight: 1 }}>{data.team_b_flag || '🏳️'}</span>
+            <span style={{
+              fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
+              color: '#ffffff', letterSpacing: 2, marginTop: 6,
+              textTransform: 'uppercase', textAlign: 'center',
+            }}>
+              {data.team_b}
+            </span>
+          </div>
+        </div>
+
+        {/* Match info bar */}
+        <div style={{
+          background: '#111', borderRadius: 4, padding: '6px 16px',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 9, color: '#555', letterSpacing: 2, textTransform: 'uppercase',
+          marginTop: 10,
+        }}>
+          GROUP STAGE · FIFA WORLD CUP 2026
+        </div>
+      </div>
+
+      {/* ── SECTION 3: RANK ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, width: '100%' }}>
+        {/* Separator */}
+        <div style={{ width: '80%', height: 1, background: '#222', marginBottom: 12 }} />
+
+        <div style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 9, color: '#555', letterSpacing: 4, textTransform: 'uppercase',
+          marginBottom: 2,
+        }}>
+          CURRENTLY RANKED
         </div>
         <div style={{
-          color: GOLD_LIGHT,
-          fontSize: 32,
-          fontFamily: BEBAS,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          lineHeight: 1,
-          textTransform: 'uppercase',
+          fontFamily: "'Arial Black', Arial, sans-serif",
+          fontSize: 72, fontWeight: 900, color: GOLD, lineHeight: 1,
         }}>
-          #{data.user_rank} OF {data.total_members} MEMBERS
+          #{data.user_rank}
         </div>
         <div style={{
-          color: '#666',
-          fontSize: 12,
-          fontFamily: SANS,
-          letterSpacing: '0.08em',
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 11, color: '#777', letterSpacing: 2, textTransform: 'uppercase',
+        }}>
+          OF {data.total_members} MEMBERS
+        </div>
+        <div style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 10, color: '#555', marginTop: 4,
         }}>
           {data.user_name}
         </div>
       </div>
 
-      {/* ── 5. LINK PILL ── */}
-      <div style={{
-        zIndex: 1,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        background: '#1a1a1a',
-        border: `1px solid ${GOLD}`,
-        borderRadius: 999,
-        padding: '7px 16px',
-        maxWidth: '100%',
-      }}>
-        <span style={{ fontSize: 12 }}>🏆</span>
-        <span style={{
-          color: GOLD,
-          fontSize: 11,
-          fontFamily: SANS,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+      {/* ── SECTION 4: BOTTOM ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, width: '100%' }}>
+        <div style={{
+          fontFamily: "'Arial Black', Arial, sans-serif",
+          fontSize: 12, fontWeight: 900, color: '#ffffff', letterSpacing: 1,
+          marginBottom: 8, textTransform: 'uppercase', textAlign: 'center',
         }}>
-          Join the league → {data.invite_url.replace(/^https?:\/\//, '')}
-        </span>
-      </div>
+          CAN YOU BEAT MY PREDICTION?
+        </div>
 
-      {/* ── 6. WATERMARK ── */}
-      <div style={{
-        color: '#333',
-        fontSize: 9,
-        letterSpacing: '0.18em',
-        fontFamily: SANS,
-        textTransform: 'uppercase',
-        zIndex: 1,
-      }}>
-        PITCHLEAGUE.VERCEL.APP
+        {/* Join link pill */}
+        <div style={{
+          border: `1px solid ${GOLD}`,
+          borderRadius: 20, padding: '8px 20px',
+          textAlign: 'center', background: '#0a0a0a', width: '100%', boxSizing: 'border-box',
+        }}>
+          <div style={{
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 8, color: GOLD, letterSpacing: 2, textTransform: 'uppercase',
+            marginBottom: 3,
+          }}>
+            JOIN THE LEAGUE FREE →
+          </div>
+          <div style={{
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 10, color: '#ffffff', fontWeight: 700,
+          }}>
+            {leagueUrl}
+          </div>
+        </div>
+
+        {/* Flag row */}
+        <div style={{
+          display: 'flex', flexDirection: 'row', gap: 6, marginTop: 10,
+          fontSize: 14, alignItems: 'center',
+        }}>
+          <span>🇧🇷</span><span>🇦🇷</span><span>🏆</span><span>🇫🇷</span><span>🇩🇪</span>
+        </div>
+
+        {/* Watermark */}
+        <div style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 8, color: '#222', letterSpacing: 3, textTransform: 'uppercase', marginTop: 8,
+        }}>
+          PITCHLEAGUE.VERCEL.APP
+        </div>
       </div>
     </div>
   )
@@ -263,11 +273,13 @@ export function ShareModal({
         style: {
           transform: 'scale(1)',
           transformOrigin: 'top left',
+          borderRadius: '0',
         },
+        bgcolor: '#0a0a0a',
       })
 
       const file = new File([blob], 'my-prediction.png', { type: 'image/png' })
-      const shareText = `I predicted ${data.team_a} ${scoreA}-${scoreB} ${data.team_b}! Can you beat my prediction? Join ${data.league_name} → ${data.invite_url}`
+      const shareText = `I predicted ${data.team_a} ${scoreA}-${scoreB} ${data.team_b}! Can you beat me? Join ${data.league_name} → ${data.invite_url}`
 
       if (
         typeof navigator !== 'undefined' &&
@@ -294,66 +306,89 @@ export function ShareModal({
     }
   }
 
-  const previewScale = Math.min(1, (typeof window !== 'undefined' ? Math.min(window.innerWidth - 48, 360) : 360) / 390)
+  // Scale card to 85% of screen width
+  const screenW = typeof window !== 'undefined' ? window.innerWidth : 390
+  const previewScale = Math.min(1, (screenW * 0.85) / 390)
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-start overflow-y-auto"
-      style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 100,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'flex-start',
+        overflowY: 'auto',
+      }}
     >
-      {/* Close */}
+      {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center border border-zinc-700 text-zinc-400 hover:text-white transition-colors z-10"
+        style={{
+          position: 'absolute', top: 20, right: 20,
+          width: 36, height: 36, borderRadius: '50%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: '1px solid #3a3a3a', background: 'transparent',
+          color: '#999', cursor: 'pointer', zIndex: 10,
+        }}
       >
         <X size={18} />
       </button>
 
-      <div className="flex flex-col items-center gap-5 px-4 pt-14 pb-10 w-full max-w-sm">
-        <p
-          className="text-[10px] font-semibold tracking-[0.25em] uppercase"
-          style={{ color: GOLD }}
-        >
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: 20, padding: '56px 24px 40px', width: '100%', maxWidth: 440,
+        boxSizing: 'border-box',
+      }}>
+        <p style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.25em',
+          textTransform: 'uppercase', color: GOLD, margin: 0,
+        }}>
           Your Prediction Card
         </p>
 
-        {/* Scaled preview wrapper */}
-        <div
-          style={{
-            width: 390 * previewScale,
-            height: 692 * previewScale,
-            overflow: 'hidden',
-            borderRadius: 12,
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              transform: `scale(${previewScale})`,
-              transformOrigin: 'top left',
-              width: 390,
-              height: 692,
-            }}
-          >
+        {/* Scaled card preview */}
+        <div style={{
+          width: 390 * previewScale,
+          height: 692 * previewScale,
+          overflow: 'hidden',
+          borderRadius: 12,
+          flexShrink: 0,
+        }}>
+          <div style={{
+            transform: `scale(${previewScale})`,
+            transformOrigin: 'top left',
+            width: 390,
+            height: 692,
+          }}>
             <div ref={cardRef}>
               <PredictionCard data={data} />
             </div>
           </div>
         </div>
 
-        <p className="text-[10px] text-zinc-600 text-center -mt-1">
+        <p style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 10, color: '#555', textAlign: 'center', margin: '-8px 0 0',
+        }}>
           Tap SAVE &amp; SHARE — native share sheet opens with image ready
         </p>
 
+        {/* SAVE & SHARE button */}
         <button
           onClick={handleShare}
           disabled={status === 'generating'}
-          className="w-full py-3.5 rounded-xl text-black font-bold tracking-widest transition-all disabled:opacity-50 active:scale-[0.97]"
           style={{
-            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
-            fontFamily: BEBAS,
-            letterSpacing: '0.12em',
-            fontSize: '1.1rem',
+            width: '100%', padding: '14px 0',
+            borderRadius: 12, border: 'none',
+            background: status === 'generating'
+              ? '#555'
+              : `linear-gradient(135deg, ${GOLD} 0%, ${GOLD_LIGHT} 100%)`,
+            color: '#000', fontWeight: 700,
+            fontFamily: "'Arial Black', Arial, sans-serif",
+            fontSize: 16, letterSpacing: '0.1em',
+            textTransform: 'uppercase', cursor: status === 'generating' ? 'not-allowed' : 'pointer',
+            opacity: status === 'generating' ? 0.6 : 1,
           }}
         >
           {status === 'generating' ? 'Generating…' : '📤 SAVE & SHARE'}
@@ -361,7 +396,12 @@ export function ShareModal({
 
         <button
           onClick={onClose}
-          className="text-xs text-zinc-700 hover:text-zinc-500 transition-colors"
+          style={{
+            background: 'transparent', border: 'none',
+            fontFamily: 'Arial, sans-serif',
+            fontSize: 12, color: '#555', cursor: 'pointer',
+            padding: '4px 0',
+          }}
         >
           Close
         </button>
