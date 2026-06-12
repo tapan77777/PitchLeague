@@ -16,8 +16,12 @@ function PredictionCard({ data }: { data: ShareCardData }) {
     <div
       style={{
         position: 'relative',
-        width: 390,
-        height: 692,
+        width: '390px',
+        minWidth: '390px',
+        maxWidth: '390px',
+        height: '692px',
+        minHeight: '692px',
+        maxHeight: '692px',
         overflow: 'hidden',
         border: `2px solid ${GOLD}`,
         borderRadius: 16,
@@ -79,6 +83,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
           fontFamily: "'Arial Black', Arial, sans-serif", fontSize: 22, fontWeight: 900,
           color: '#ffffff', letterSpacing: 3, textAlign: 'center', marginBottom: 2,
           textTransform: 'uppercase',
+          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {data.league_name}
         </div>
@@ -119,6 +124,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
               fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
               color: '#ffffff', letterSpacing: 2, marginTop: 6,
               textTransform: 'uppercase', textAlign: 'center',
+              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {data.team_a}
             </span>
@@ -149,6 +155,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
               fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
               color: '#ffffff', letterSpacing: 2, marginTop: 6,
               textTransform: 'uppercase', textAlign: 'center',
+              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {data.team_b}
             </span>
@@ -193,6 +200,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
         <div style={{
           fontFamily: 'Arial, sans-serif',
           fontSize: 10, color: '#555', marginTop: 4,
+          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {data.user_name}
         </div>
@@ -224,6 +232,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
           <div style={{
             fontFamily: 'Arial, sans-serif',
             fontSize: 10, color: '#ffffff', fontWeight: 700,
+            maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {leagueUrl}
           </div>
@@ -267,17 +276,16 @@ export function ShareModal({
     setStatus('generating')
     try {
       const domtoimage = (await import('dom-to-image-more')).default
-      const scale = window.devicePixelRatio || 3
       const blob: Blob = await domtoimage.toBlob(cardRef.current, {
         width: 390,
         height: 692,
-        style: {
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          width: `${390 / scale}px`,
-          height: `${692 / scale}px`,
-        },
         bgcolor: '#0a0a0a',
+        style: {
+          width: '390px',
+          height: '692px',
+          overflow: 'hidden',
+          transform: 'none',
+        },
       })
 
       const file = new File([blob], 'my-prediction.png', { type: 'image/png' })
@@ -349,7 +357,7 @@ export function ShareModal({
           Your Prediction Card
         </p>
 
-        {/* Scaled card preview */}
+        {/* Card preview — outer clips, inner scales, ref on natural-size wrapper */}
         <div style={{
           width: 390 * previewScale,
           height: 692 * previewScale,
