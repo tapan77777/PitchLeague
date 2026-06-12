@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import ReturningUserBar from '@/components/ReturningUserBar'
+import AdminAccessBar from '@/components/AdminAccessBar'
 import { supabase } from '@/lib/supabase'
 
 interface Match {
@@ -104,8 +104,8 @@ export default function LandingPage() {
   return (
     <main className="bg-[#0a0a0a] text-white min-h-screen overflow-x-hidden">
 
-      {/* ── Returning user bar ── */}
-      <ReturningUserBar />
+      {/* ── Admin access bar (fixed bottom, device only) ── */}
+      <AdminAccessBar />
 
       {/* ══════════════════════════════════════
           1. NAV
@@ -153,9 +153,9 @@ export default function LandingPage() {
 
           {/* Headline */}
           <h1 className="bebas leading-none mb-6">
-            <span className="block text-7xl sm:text-8xl lg:text-[10rem] text-white">YOUR BRAND.</span>
-            <span className="block text-7xl sm:text-8xl lg:text-[10rem]" style={{ color: '#c9a84c' }}>YOUR LEAGUE.</span>
-            <span className="block text-7xl sm:text-8xl lg:text-[10rem] text-white">FIFA 2026.</span>
+            <span className="block text-5xl sm:text-7xl lg:text-[10rem] text-white">YOUR BRAND.</span>
+            <span className="block text-5xl sm:text-7xl lg:text-[10rem]" style={{ color: '#c9a84c' }}>YOUR LEAGUE.</span>
+            <span className="block text-5xl sm:text-7xl lg:text-[10rem] text-white">FIFA 2026.</span>
           </h1>
 
           {/* Sub */}
@@ -164,34 +164,44 @@ export default function LandingPage() {
             Your customers predict scores, compete on your leaderboard, and keep coming back.
           </p>
 
-          {/* League ticker pill strip */}
+          {/* Live leagues pill strip */}
           {liveLeagues.length > 0 && (
-            <div style={{ marginBottom: 28 }}>
-              <p style={{ fontSize: 10, color: '#444', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 10 }}>
+            <div style={{ maxWidth: '100%', overflow: 'hidden', marginBottom: 24 }}>
+              <p style={{ fontSize: 10, color: '#c9a84c', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: 12 }}>
                 LIVE LEAGUES PLAYING NOW
               </p>
-              <div style={{ overflow: 'hidden', maskImage: 'linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)' }}>
-                <div className="league-ticker-track">
-                  {[...liveLeagues, ...liveLeagues].map((league, i) => (
-                    <Link
-                      key={`${league.id}-${i}`}
-                      href={`/league/${league.slug}`}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        background: 'rgba(201,168,76,0.07)',
-                        border: '1px solid rgba(201,168,76,0.18)',
-                        borderRadius: 999, padding: '6px 14px',
-                        textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
-                        fontFamily: "'Arial', sans-serif", fontSize: 12, fontWeight: 700,
-                        color: '#c9a84c', letterSpacing: '0.02em',
-                      }}
-                    >
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2dc653', display: 'inline-block', flexShrink: 0 }} />
-                      {league.name}
-                      <span style={{ color: '#555', fontWeight: 400 }}>· {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}</span>
-                    </Link>
-                  ))}
-                </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                {liveLeagues.slice(0, 3).map((league) => (
+                  <Link
+                    key={league.id}
+                    href={`/league/${league.slug}`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      background: '#111', border: '1px solid #333', borderRadius: 20,
+                      padding: '6px 14px', textDecoration: 'none',
+                      fontFamily: "'Arial', sans-serif", fontSize: 12,
+                      color: '#fff', fontWeight: 600,
+                    }}
+                  >
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2dc653', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+                      {league.name.length > 15 ? league.name.slice(0, 15) + '…' : league.name}
+                    </span>
+                    <span style={{ color: '#666', fontWeight: 400, whiteSpace: 'nowrap' }}>
+                      · {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}
+                    </span>
+                  </Link>
+                ))}
+                {liveLeagues.length > 3 && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center',
+                    background: '#111', border: '1px solid #333', borderRadius: 20,
+                    padding: '6px 14px', fontFamily: "'Arial', sans-serif",
+                    fontSize: 12, color: '#555',
+                  }}>
+                    +{liveLeagues.length - 3} more
+                  </span>
+                )}
               </div>
             </div>
           )}
