@@ -112,7 +112,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
         {/* Separator */}
         <div style={{ width: '80%', height: 1, background: '#222', margin: '12px 0' }} />
 
-        {/* Teams row */}
+        {/* Teams + score in one row */}
         <div style={{
           display: 'flex', flexDirection: 'row', alignItems: 'center',
           justifyContent: 'space-between', width: '100%',
@@ -121,30 +121,25 @@ function PredictionCard({ data }: { data: ShareCardData }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
             <span style={{ fontSize: 52, lineHeight: 1 }}>{data.team_a_flag || '🏳️'}</span>
             <span style={{
-              fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
+              fontFamily: 'Arial, sans-serif', fontSize: 12, fontWeight: 900,
               color: '#ffffff', letterSpacing: 2, marginTop: 6,
               textTransform: 'uppercase', textAlign: 'center',
-              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {data.team_a}
             </span>
           </div>
 
-          {/* Score */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+          {/* Score only — no team names */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 100, flexShrink: 0 }}>
             <div style={{
               fontFamily: "'Arial Black', Arial, sans-serif",
-              fontSize: 64, fontWeight: 900,
+              fontSize: 56, fontWeight: 900,
               color: GOLD, lineHeight: 1,
-              letterSpacing: '-0.02em',
+              letterSpacing: '0.05em',
+              whiteSpace: 'nowrap',
             }}>
-              {scoreA}-{scoreB}
-            </div>
-            <div style={{
-              fontFamily: 'Arial, sans-serif',
-              fontSize: 8, color: '#555', letterSpacing: 2, textTransform: 'uppercase',
-            }}>
-              MY PREDICTION
+              {scoreA} — {scoreB}
             </div>
           </div>
 
@@ -152,14 +147,23 @@ function PredictionCard({ data }: { data: ShareCardData }) {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
             <span style={{ fontSize: 52, lineHeight: 1 }}>{data.team_b_flag || '🏳️'}</span>
             <span style={{
-              fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 900,
+              fontFamily: 'Arial, sans-serif', fontSize: 12, fontWeight: 900,
               color: '#ffffff', letterSpacing: 2, marginTop: 6,
               textTransform: 'uppercase', textAlign: 'center',
-              maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {data.team_b}
             </span>
           </div>
+        </div>
+
+        {/* MY PREDICTION label */}
+        <div style={{
+          fontFamily: 'Arial, sans-serif',
+          fontSize: 9, color: '#555', letterSpacing: '3px',
+          textTransform: 'uppercase', marginTop: 8,
+        }}>
+          MY PREDICTION
         </div>
 
         {/* Match info bar */}
@@ -167,7 +171,7 @@ function PredictionCard({ data }: { data: ShareCardData }) {
           background: '#111', borderRadius: 4, padding: '6px 16px',
           fontFamily: 'Arial, sans-serif',
           fontSize: 9, color: '#555', letterSpacing: 2, textTransform: 'uppercase',
-          marginTop: 10,
+          marginTop: 8,
         }}>
           GROUP STAGE · FIFA WORLD CUP 2026
         </div>
