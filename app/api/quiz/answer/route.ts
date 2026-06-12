@@ -47,21 +47,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
 
-  // Award points to league member if correct
-  if (is_correct && league_id) {
-    const { data: member } = await supabase
-      .from('league_members')
-      .select('total_points')
-      .eq('league_id', league_id)
-      .eq('clerk_id', member_id)
-      .maybeSingle()
+  console.log('Updating points for member:', member_id)
 
-    if (member) {
-      await supabase.from('league_members')
-        .update({ total_points: (member.total_points ?? 0) + 0.5 })
-        .eq('league_id', league_id)
-        .eq('clerk_id', member_id)
+  if (is_correct) {
+    // Get all leagues this member is in
+    const { data: memberships } = await supabase
+      .from('league_members')
+      .select('id, league_id, total_points')
+      .eq('clerk_id', member_id)
+
+    console.log('Memberships found:', memberships?.length)
+
+    for (const membership of memberships ?? []) {
+      await supabase
+        .from('league_members')
+        .update({ total_points: (membership.total_points ?? 0) + 0.5 })
+        .eq('id', membership.id)
     }
+
+    console.log('Points updated: +0.5')
+  } else {
+    console.log('Points updated: 0')
   }
 
   return NextResponse.json({
