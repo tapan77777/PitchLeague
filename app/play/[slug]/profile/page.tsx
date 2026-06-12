@@ -2,13 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getOrCreateMemberId, getMemberName, hasJoinedLeague } from '@/lib/member'
-import { getLeagueThemeVars, getAccuracy } from '@/lib/utils'
+import { getAccuracy } from '@/lib/utils'
 import { League, LeagueMember, Badge } from '@/types'
 import PlayBottomNav from '@/components/play/PlayBottomNav'
-import { LogOut } from 'lucide-react'
+
+const GOLD = '#c9a84c'
+const BEBAS = "'Bebas Neue', 'Impact', sans-serif"
+const SANS = "'Arial', 'Helvetica Neue', sans-serif"
 
 interface PredictionRow {
   id: string
@@ -46,7 +48,7 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [leaving, setLeaving] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   useEffect(() => {
     const id = getOrCreateMemberId()
@@ -106,11 +108,22 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
 
   useEffect(() => { if (memberId) fetchData(memberId) }, [memberId, fetchData])
 
-  function handleLeave() { setLeaving(true); router.replace('/') }
+  function handleLeaveConfirmed() {
+    // Remove this league from localStorage session
+    try {
+      const raw = localStorage.getItem('pitchleague_sessions')
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s.leagues) delete s.leagues[slug]
+        localStorage.setItem('pitchleague_sessions', JSON.stringify(s))
+      }
+    } catch { /* ignore */ }
+    router.replace('/')
+  }
 
   if (loading || !memberId) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="w-7 h-7 border-2 border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -118,104 +131,146 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center px-5 text-center">
-        <span className="text-4xl mb-4">⚠️</span>
-        <p className="text-zinc-400 text-sm mb-4">Failed to load profile.</p>
-        <button onClick={() => fetchData(memberId)}
-          className="gold-gradient text-black font-bold px-5 py-2.5 rounded-full text-sm">Retry</button>
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 20px', textAlign: 'center' }}>
+        <span style={{ fontSize: 40, marginBottom: 16 }}>⚠️</span>
+        <p style={{ color: '#666', fontFamily: SANS, fontSize: 14, marginBottom: 16 }}>Failed to load profile.</p>
+        <button onClick={() => fetchData(memberId)} style={{ background: GOLD, color: '#000', fontFamily: BEBAS, fontSize: 16, padding: '10px 24px', borderRadius: 999, border: 'none', cursor: 'pointer' }}>Retry</button>
       </div>
     )
   }
 
   const { league, membership, memberCount, predictions, badges } = data
-  const primary = league.primary_color || '#16a34a'
-  const themeVars = getLeagueThemeVars(primary, league.accent_color || '#15803d')
   const initials = (memberName || '?').split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-  const accuracy = getAccuracy(membership.correct_predictions ?? 0, predictions.length)
-  const finishedPreds = predictions.filter(p => p.match_status === 'finished')
+  const accuracy = getAccuracy(membership.correct_predictions ?? 0, predictions.filter(p => p.match_status === 'finished').length)
+  const recentPreds = predictions.slice(0, 5)
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pb-28" style={themeVars}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', paddingBottom: 96 }}>
+
+      {/* Leave confirm modal */}
+      {confirmLeave && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
+          <div style={{ background: '#111', border: '1px solid #222', borderRadius: 16, padding: '28px 24px', maxWidth: 320, width: '100%', textAlign: 'center' }}>
+            <span style={{ fontSize: 36, display: 'block', marginBottom: 12 }}>🚪</span>
+            <h2 style={{ fontFamily: BEBAS, fontSize: 22, color: '#fff', letterSpacing: '0.1em', marginBottom: 8 }}>LEAVE LEAGUE?</h2>
+            <p style={{ fontFamily: SANS, fontSize: 13, color: '#555', marginBottom: 24, lineHeight: 1.5 }}>
+              You can rejoin anytime with the invite link. Your predictions will be saved.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={handleLeaveConfirmed} style={{ width: '100%', padding: '13px 0', border: '1px solid #e74c3c', background: 'transparent', borderRadius: 10, color: '#e74c3c', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                Yes, leave league
+              </button>
+              <button onClick={() => setConfirmLeave(false)} style={{ width: '100%', padding: '13px 0', border: '1px solid #222', background: 'transparent', borderRadius: 10, color: '#555', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b px-4 py-0 h-[52px] flex items-center"
-        style={{ borderBottomColor: '#c9a84c22' }}>
-        <div className="flex items-center justify-between max-w-lg mx-auto w-full">
-          <div className="flex items-center gap-2">
-            {league.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={league.logo_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-            ) : (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black"
-                style={{ backgroundColor: primary + '33', color: primary }}>{league.name.charAt(0)}</div>
-            )}
-            <span className="text-[11px] font-bold tracking-wider uppercase text-zinc-300 truncate max-w-[140px]">
-              {league.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-sm">🏆</span>
-            <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: '#c9a84c' }}>FIFA 2026</span>
-          </div>
-          <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Profile</span>
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 40,
+        background: 'rgba(10,10,10,0.96)', backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(201,168,76,0.1)',
+        padding: '0 16px', height: 52,
+        display: 'flex', alignItems: 'center',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: 520, margin: '0 auto', width: '100%' }}>
+          <span style={{ fontFamily: BEBAS, fontSize: 20, color: '#fff', letterSpacing: '0.12em', textTransform: 'uppercase', flex: 1 }}>
+            {league.name}
+          </span>
+          <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: '#444', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            PROFILE
+          </span>
         </div>
       </header>
 
-      <div className="max-w-lg mx-auto px-4 pt-6 space-y-6">
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 16px' }}>
 
         {/* ── Hero ── */}
-        <div className="flex flex-col items-center text-center pt-2">
-          <div className="relative mb-4">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center border-2"
-              style={{ backgroundColor: '#c9a84c11', borderColor: '#c9a84c55' }}>
-              <span className="fifa-score text-4xl text-[#c9a84c]">{initials}</span>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '32px 0 24px' }}>
+          {/* Avatar */}
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            border: `2px solid ${GOLD}`,
+            background: `${GOLD}1a`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: BEBAS, fontSize: 26, color: GOLD,
+            marginBottom: 12, position: 'relative',
+          }}>
+            {initials}
             {membership.rank <= 3 && (
-              <span className="absolute -top-1 -right-1 text-xl">
+              <span style={{ position: 'absolute', top: -4, right: -4, fontSize: 18 }}>
                 {['🥇','🥈','🥉'][membership.rank - 1]}
               </span>
             )}
           </div>
-          <h1 className="fifa-score text-3xl text-[#f0f0f0]">{memberName || 'PLAYER'}</h1>
-          <p className="text-zinc-600 text-xs mt-0.5 uppercase tracking-wider">{league.name}</p>
-          <div className="mt-2 px-3 py-1 rounded-full border text-[11px] font-semibold"
-            style={{ color: '#c9a84c', borderColor: '#c9a84c33', backgroundColor: '#c9a84c0a' }}>
+          {/* Name */}
+          <h1 style={{ fontFamily: BEBAS, fontSize: 22, color: '#fff', letterSpacing: '0.12em', textTransform: 'uppercase', margin: '0 0 4px' }}>
+            {memberName || 'PLAYER'}
+          </h1>
+          {/* League */}
+          <p style={{ fontFamily: SANS, fontSize: 10, color: '#444', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+            {league.name}
+          </p>
+          {/* Rank pill */}
+          <div style={{
+            display: 'inline-block',
+            border: `1px solid ${GOLD}55`,
+            borderRadius: 999, padding: '5px 14px',
+            fontFamily: SANS, fontSize: 12, fontWeight: 700,
+            color: GOLD, background: `${GOLD}0d`,
+          }}>
             #{membership.rank} of {memberCount} players
           </div>
         </div>
 
-        {/* ── Stats grid ── */}
-        <div className="grid grid-cols-2 gap-2.5">
+        {/* ── Stats 2x2 ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 24 }}>
           {[
-            { label: 'TOTAL POINTS', value: String(membership.total_points ?? 0), gold: true },
-            { label: 'ACCURACY',     value: accuracy,                              gold: false },
-            { label: 'EXACT SCORES', value: String(membership.exact_scores ?? 0),  gold: false },
-            { label: 'BEST STREAK',  value: `${membership.best_streak ?? 0}🔥`,    gold: false },
-          ].map(({ label, value, gold }) => (
-            <div key={label} className="bg-[#161616] border border-[#222] rounded-xl p-4">
-              <p className="text-[9px] font-semibold tracking-widest uppercase text-zinc-600 mb-1">{label}</p>
-              <p className="fifa-score text-4xl leading-none" style={{ color: gold ? '#c9a84c' : '#f0f0f0' }}>
-                {value}
-              </p>
+            { label: 'TOTAL POINTS', value: String(membership.total_points ?? 0), color: GOLD },
+            { label: 'ACCURACY',     value: accuracy,                              color: '#2dc653' },
+            { label: 'EXACT SCORES', value: String(membership.exact_scores ?? 0),  color: '#378ADD' },
+            { label: 'BEST STREAK',  value: String(membership.best_streak ?? 0),   color: '#e74c3c', suffix: '🔥' },
+          ].map(({ label, value, color, suffix }) => (
+            <div key={label} style={{
+              background: '#0d0d0d', borderRadius: 10, padding: 14,
+              borderBottom: `2px solid ${color}`,
+              border: '1px solid #1a1a1a',
+              borderBottomColor: color,
+            }}>
+              <div style={{ fontFamily: SANS, fontSize: 9, color: '#444', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 6 }}>
+                {label}
+              </div>
+              <div style={{ fontFamily: BEBAS, fontSize: 28, color: '#fff', lineHeight: 1 }}>
+                {value}{suffix ?? ''}
+              </div>
             </div>
           ))}
         </div>
 
         {/* ── Badges ── */}
-        <div>
-          <SectionHeader title="BADGES" />
+        <div style={{ marginBottom: 24 }}>
+          <SectionLabel>BADGES</SectionLabel>
           {badges.length === 0 ? (
-            <div className="bg-[#161616] border border-[#222] rounded-xl p-5 text-center">
-              <p className="text-zinc-600 text-sm">Keep predicting to earn badges ✨</p>
+            <div style={{
+              border: '1px dashed #222', borderRadius: 12,
+              padding: '24px 16px', textAlign: 'center',
+            }}>
+              <span style={{ fontSize: 28, display: 'block', marginBottom: 8 }}>🎯</span>
+              <p style={{ fontFamily: SANS, fontSize: 13, color: '#444' }}>Keep predicting to earn badges</p>
             </div>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-none">
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -16px', padding: '0 16px 4px' }}>
               {badges.map(badge => (
-                <div key={badge.id}
-                  className="shrink-0 flex items-center gap-1.5 bg-[#161616] rounded-full px-3 py-2 border"
-                  style={{ borderColor: '#c9a84c44' }}>
-                  <span className="text-base">{badge.badge_emoji}</span>
-                  <span className="text-[11px] font-semibold whitespace-nowrap" style={{ color: '#c9a84c' }}>
+                <div key={badge.id} style={{
+                  flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#0d0d0d', border: `1px solid ${GOLD}44`,
+                  borderRadius: 999, padding: '7px 14px',
+                }}>
+                  <span style={{ fontSize: 15 }}>{badge.badge_emoji}</span>
+                  <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 600, color: GOLD, whiteSpace: 'nowrap' }}>
                     {badge.badge_label}
                   </span>
                 </div>
@@ -224,49 +279,38 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
           )}
         </div>
 
-        {/* ── Prediction history ── */}
-        <div>
-          <SectionHeader title={`PREDICTIONS (${predictions.length})`} />
-          {predictions.length === 0 ? (
-            <div className="bg-[#161616] border border-[#222] rounded-xl p-6 text-center">
-              <span className="text-3xl block mb-2">🎯</span>
-              <p className="text-zinc-600 text-sm">No predictions yet.</p>
+        {/* ── Recent predictions ── */}
+        <div style={{ marginBottom: 24 }}>
+          <SectionLabel>RECENT PREDICTIONS</SectionLabel>
+          {recentPreds.length === 0 ? (
+            <div style={{ background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 10, padding: '24px 16px', textAlign: 'center' }}>
+              <span style={{ fontSize: 28, display: 'block', marginBottom: 8 }}>🎯</span>
+              <p style={{ fontFamily: SANS, fontSize: 13, color: '#444' }}>No predictions yet.</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {predictions.map(pred => <PredHistoryRow key={pred.id} pred={pred} />)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {recentPreds.map(pred => <PredRow key={pred.id} pred={pred} />)}
             </div>
           )}
         </div>
 
-        {/* ── Stats summary ── */}
-        {finishedPreds.length > 0 && (
-          <div className="bg-[#161616] border border-[#222] rounded-xl p-4">
-            <p className="text-[9px] font-semibold tracking-widest uppercase text-zinc-600 mb-3">SUMMARY</p>
-            <div className="flex justify-around">
-              {[
-                { label: 'Played', value: finishedPreds.length },
-                { label: 'Correct', value: membership.correct_predictions },
-                { label: 'Exact', value: membership.exact_scores },
-                { label: 'Points', value: membership.total_points },
-              ].map(({ label, value }) => (
-                <div key={label} className="text-center">
-                  <p className="fifa-score text-2xl text-[#f0f0f0]">{value}</p>
-                  <p className="text-[10px] text-zinc-600">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Leave ── */}
-        <div className="pb-4">
-          <button onClick={handleLeave} disabled={leaving}
-            className="w-full flex items-center justify-center gap-2 border border-[#222] hover:border-red-900 text-zinc-600 hover:text-red-500 font-medium py-3.5 rounded-full transition-colors text-sm disabled:opacity-50">
-            <LogOut size={14} />
-            {leaving ? 'Leaving…' : 'Leave league'}
+        {/* ── Leave league ── */}
+        <div style={{ paddingBottom: 16 }}>
+          <button
+            onClick={() => setConfirmLeave(true)}
+            style={{
+              width: '100%', padding: '14px 0',
+              border: '1px solid #e74c3c33', background: 'transparent',
+              borderRadius: 12, color: '#e74c3c',
+              fontFamily: SANS, fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', letterSpacing: '0.04em',
+            }}
+          >
+            Leave League
           </button>
-          <p className="text-zinc-700 text-xs text-center mt-2">You can rejoin anytime with the invite link.</p>
+          <p style={{ fontFamily: SANS, fontSize: 11, color: '#2a2a2a', textAlign: 'center', marginTop: 8 }}>
+            You can rejoin anytime with the invite link.
+          </p>
         </div>
       </div>
 
@@ -275,68 +319,76 @@ export default function PlayProfilePage({ params }: { params: { slug: string } }
   )
 }
 
-/* ─────────────────────────── Sub-components ─────────────────────────── */
+/* ─── helpers ─── */
 
-function SectionHeader({ title }: { title: string }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-[3px] h-5 rounded-full bg-[#c9a84c]" />
-      <span className="text-[11px] font-semibold tracking-widest uppercase text-zinc-500">{title}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ width: 3, height: 18, borderRadius: 2, background: GOLD, flexShrink: 0 }} />
+      <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#555' }}>
+        {children}
+      </span>
     </div>
   )
 }
 
-function PredHistoryRow({ pred }: { pred: PredictionRow }) {
-  const isFinished = pred.match_status === 'finished'
-  const isLive = pred.match_status === 'live'
+function PredRow({ pred }: { pred: PredictionRow }) {
+  const finished = pred.match_status === 'finished'
+  const live = pred.match_status === 'live'
   const correct = pred.is_correct_winner || pred.is_exact_score
   const exact = pred.is_exact_score
   const pts = pred.points_earned ?? 0
 
-  const borderColor = isFinished ? (correct ? '#2dc65355' : '#333') : isLive ? '#ff2d2d44' : '#222'
-  const leftBorder = isFinished && correct ? '#2dc653' : '#333'
+  const leftBorder = finished ? (correct ? '#2dc653' : '#333') : live ? '#ff2d2d' : '#252525'
 
   return (
-    <div className="bg-[#161616] border rounded-xl overflow-hidden"
-      style={{ borderColor, borderLeftWidth: 3, borderLeftColor: leftBorder }}>
-      <div className="px-4 py-3 flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 text-sm font-semibold leading-snug">
-            <span>{pred.team_a_flag || '🏴'}</span>
-            <span className="fifa-score text-base text-[#f0f0f0] truncate max-w-[52px]">{pred.team_a}</span>
-            <span className="text-zinc-700 mx-0.5">vs</span>
-            <span className="fifa-score text-base text-[#f0f0f0] truncate max-w-[52px]">{pred.team_b}</span>
-            <span>{pred.team_b_flag || '🏴'}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[11px] text-zinc-600">
-              Pick: <span className="text-zinc-400 font-medium">{pred.predicted_score_a} — {pred.predicted_score_b}</span>
-            </span>
-            {isFinished && pred.score_a != null && (
-              <span className="text-[11px] text-zinc-600">
-                FT: <span className="text-zinc-400 font-medium">{pred.score_a} — {pred.score_b}</span>
-              </span>
-            )}
-          </div>
+    <div style={{
+      background: '#0d0d0d',
+      borderRadius: '0 10px 10px 0',
+      border: '1px solid #1a1a1a',
+      borderLeft: `3px solid ${leftBorder}`,
+      padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      opacity: !finished && !live ? 0.6 : 1,
+    }}>
+      {/* Left: flags + match + pick */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+          <span style={{ fontSize: 14 }}>{pred.team_a_flag || '🏳️'}</span>
+          <span style={{ fontFamily: BEBAS, fontSize: 14, color: '#f0f0f0', letterSpacing: '0.06em', textTransform: 'uppercase', maxWidth: 52, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {pred.team_a}
+          </span>
+          <span style={{ fontFamily: SANS, fontSize: 10, color: '#333' }}>vs</span>
+          <span style={{ fontFamily: BEBAS, fontSize: 14, color: '#f0f0f0', letterSpacing: '0.06em', textTransform: 'uppercase', maxWidth: 52, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {pred.team_b}
+          </span>
+          <span style={{ fontSize: 14 }}>{pred.team_b_flag || '🏳️'}</span>
         </div>
-        <div className="shrink-0 text-right">
-          {isFinished ? (
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="text-lg leading-none">{exact ? '🎯' : correct ? '✅' : '❌'}</span>
-              <span className="fifa-score text-xl leading-none" style={{ color: correct ? '#2dc653' : '#444' }}>
-                {pts > 0 ? `+${pts}` : '0'}
-              </span>
-              <span className="text-[9px] text-zinc-600">pts</span>
-            </div>
-          ) : isLive ? (
-            <div className="flex items-center gap-1">
-              <span className="live-pulse w-1.5 h-1.5 rounded-full bg-[#ff2d2d] block" />
-              <span className="text-[10px] font-bold text-[#ff2d2d]">LIVE</span>
-            </div>
-          ) : (
-            <span className="text-[11px] text-zinc-700">🔒</span>
+        <div style={{ fontFamily: SANS, fontSize: 11, color: '#555' }}>
+          Predicted: <span style={{ color: '#888', fontWeight: 600 }}>{pred.predicted_score_a}–{pred.predicted_score_b}</span>
+          {finished && pred.score_a != null && (
+            <span style={{ marginLeft: 8 }}>FT: <span style={{ color: '#666' }}>{pred.score_a}–{pred.score_b}</span></span>
           )}
         </div>
+      </div>
+      {/* Right: result */}
+      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 56 }}>
+        {finished ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+            <span style={{ fontSize: 14 }}>{exact ? '✅' : correct ? '✅' : '❌'}</span>
+            <span style={{ fontFamily: BEBAS, fontSize: 16, color: correct ? '#2dc653' : '#333', lineHeight: 1 }}>
+              {pts > 0 ? `+${pts}pts` : '0pts'}
+            </span>
+            {exact && <span style={{ fontFamily: SANS, fontSize: 9, color: '#2dc65399', letterSpacing: '0.1em', textTransform: 'uppercase' }}>EXACT</span>}
+          </div>
+        ) : live ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span className="live-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff2d2d', display: 'inline-block' }} />
+            <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, color: '#ff2d2d', letterSpacing: '0.1em' }}>LIVE</span>
+          </div>
+        ) : (
+          <span style={{ fontFamily: SANS, fontSize: 14, color: '#2a2a2a' }}>🔒</span>
+        )}
       </div>
     </div>
   )
