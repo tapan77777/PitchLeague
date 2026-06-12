@@ -255,6 +255,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                               onClick={e => e.stopPropagation()}>
                               Manage →
                             </a>
+                            <DeleteLeagueButton
+                              league={league}
+                              onDeleted={(id) => setLeagues(prev => prev.filter(l => l.id !== id))}
+                            />
                             {expandedLeague === league.id ? <ChevronUp size={14} className="text-zinc-600" /> : <ChevronDown size={14} className="text-zinc-600" />}
                           </div>
                         </div>
@@ -322,6 +326,58 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
     </div>
+  )
+}
+
+/* ─── Delete League Button ─── */
+function DeleteLeagueButton({ league, onDeleted }: { league: LeagueRow; onDeleted: (id: string) => void }) {
+  const [confirm, setConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [toast, setToast] = useState('')
+
+  async function handleDelete() {
+    setDeleting(true)
+    const res = await fetch(`/api/admin/leagues/${league.id}`, {
+      method: 'DELETE',
+      headers: { 'x-superadmin-key': 'pitchleague_super_2026' },
+    })
+    setDeleting(false)
+    if (res.ok) {
+      setToast('Deleted ✓')
+      setTimeout(() => onDeleted(league.id), 800)
+    } else {
+      setToast('Failed'); setTimeout(() => setToast(''), 2500)
+    }
+  }
+
+  if (toast) {
+    return <span className="text-[10px] font-semibold text-red-400 shrink-0">{toast}</span>
+  }
+
+  if (confirm) {
+    return (
+      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+        <span className="text-[9px] text-zinc-500 max-w-[100px] leading-tight hidden sm:block">
+          Delete {league.name}?
+        </span>
+        <button onClick={handleDelete} disabled={deleting}
+          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 disabled:opacity-50 whitespace-nowrap">
+          {deleting ? '…' : 'Yes, delete'}
+        </button>
+        <button onClick={() => setConfirm(false)}
+          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); setConfirm(true) }}
+      className="text-[10px] font-semibold text-red-700 hover:text-red-400 border border-red-900/40 hover:border-red-500/40 px-2 py-0.5 rounded-full transition-colors shrink-0">
+      Delete
+    </button>
   )
 }
 

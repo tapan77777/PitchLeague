@@ -164,6 +164,38 @@ export default function LandingPage() {
             Your customers predict scores, compete on your leaderboard, and keep coming back.
           </p>
 
+          {/* League ticker pill strip */}
+          {liveLeagues.length > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <p style={{ fontSize: 10, color: '#444', letterSpacing: '0.22em', textTransform: 'uppercase', marginBottom: 10 }}>
+                LIVE LEAGUES PLAYING NOW
+              </p>
+              <div style={{ overflow: 'hidden', maskImage: 'linear-gradient(90deg, transparent 0%, black 8%, black 92%, transparent 100%)' }}>
+                <div className="league-ticker-track">
+                  {[...liveLeagues, ...liveLeagues].map((league, i) => (
+                    <Link
+                      key={`${league.id}-${i}`}
+                      href={`/league/${league.slug}`}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        background: 'rgba(201,168,76,0.07)',
+                        border: '1px solid rgba(201,168,76,0.18)',
+                        borderRadius: 999, padding: '6px 14px',
+                        textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0,
+                        fontFamily: "'Arial', sans-serif", fontSize: 12, fontWeight: 700,
+                        color: '#c9a84c', letterSpacing: '0.02em',
+                      }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2dc653', display: 'inline-block', flexShrink: 0 }} />
+                      {league.name}
+                      <span style={{ color: '#555', fontWeight: 400 }}>· {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-12">
             <Link
@@ -374,7 +406,6 @@ export default function LandingPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
-                      opacity: league.is_public === false ? 0.4 : 1,
                       position: 'relative',
                     }}
                   >
@@ -402,8 +433,15 @@ export default function LandingPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontFamily: "'Arial Black', Arial, sans-serif",
                       fontSize: isFeatured ? 22 : 20, fontWeight: 900, color,
+                      overflow: 'hidden',
                     }}>
-                      {initial}
+                      {league.logo_url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={league.logo_url} alt={league.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                        : initial
+                      }
                     </div>
 
                     {/* Info */}
@@ -434,27 +472,21 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Join or Private */}
-                    {league.is_public === false ? (
-                      <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 11, color: '#444', flexShrink: 0 }}>
-                        Private
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/league/${league.slug}`}
-                        style={{
-                          display: 'inline-block', flexShrink: 0,
-                          background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
-                          color: '#000', fontFamily: "'Arial', sans-serif",
-                          fontSize: 11, fontWeight: 900,
-                          borderRadius: 20, padding: '8px 14px',
-                          textDecoration: 'none', letterSpacing: '0.04em',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        JOIN →
-                      </Link>
-                    )}
+                    {/* JOIN button — always shown */}
+                    <Link
+                      href={`/league/${league.slug}`}
+                      style={{
+                        display: 'inline-block', flexShrink: 0,
+                        background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
+                        color: '#000', fontFamily: "'Arial', sans-serif",
+                        fontSize: 11, fontWeight: 900,
+                        borderRadius: 20, padding: '8px 14px',
+                        textDecoration: 'none', letterSpacing: '0.04em',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      JOIN →
+                    </Link>
                   </div>
                 )
               })}
