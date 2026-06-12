@@ -102,7 +102,7 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <main className="bg-[#0a0a0a] text-white min-h-screen overflow-x-hidden">
+    <main className="bg-[#0a0a0a] text-white min-h-screen overflow-x-hidden" style={{ paddingBottom: 80 }}>
 
       {/* ── Admin access bar (fixed bottom, device only) ── */}
       <AdminAccessBar />
@@ -184,8 +184,8 @@ export default function LandingPage() {
                     }}
                   >
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2dc653', display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
-                      {league.name.length > 15 ? league.name.slice(0, 15) + '…' : league.name}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+                      {league.name.length > 20 ? league.name.slice(0, 20) + '…' : league.name}
                     </span>
                     <span style={{ color: '#666', fontWeight: 400, whiteSpace: 'nowrap' }}>
                       · {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}
