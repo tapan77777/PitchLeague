@@ -303,6 +303,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             </section>
 
+            {/* Daily Quiz */}
+            <DailyQuizSection />
+
             {/* Match Results Entry */}
             <section>
               <SASection title="MATCH RESULTS" />
@@ -414,6 +417,188 @@ function FeaturedRankSelect({ leagueId, currentRank, onSaved }: {
       <option value="2">★ #2 Silver</option>
       <option value="3">★ #3 Bronze</option>
     </select>
+  )
+}
+
+/* ─── Daily Quiz Section ─── */
+interface QuizSessionRow {
+  id: string
+  session_date: string
+  session_type: string
+  status: string
+  answerCount: number
+  quiz_questions: { id: string; question_number: number; question: string }[]
+}
+
+const SA_QUIZ_KEY = 'pitchleague_super_2026'
+
+function DailyQuizSection() {
+  const [sessions, setSessions] = useState<QuizSessionRow[]>([])
+  const [loadingQ, setLoadingQ] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [type, setType] = useState('morning')
+  const [questions, setQuestions] = useState(
+    Array.from({ length: 3 }, () => ({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', explanation: '', category: 'general' }))
+  )
+
+  useEffect(() => {
+    setLoadingQ(true)
+    fetch('/api/admin/quiz', { headers: { 'x-superadmin-key': SA_QUIZ_KEY } })
+      .then(r => r.json())
+      .then(d => { setSessions(d.sessions ?? []); setLoadingQ(false) })
+      .catch(() => setLoadingQ(false))
+  }, [])
+
+  function updateQ(i: number, field: string, value: string) {
+    setQuestions(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
+  }
+
+  async function handleCreate() {
+    for (const q of questions) {
+      if (!q.question || !q.option_a || !q.option_b || !q.option_c || !q.option_d) {
+        setMsg('Fill all question fields.'); return
+      }
+    }
+    setSubmitting(true); setMsg('')
+    const res = await fetch('/api/admin/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-superadmin-key': SA_QUIZ_KEY },
+      body: JSON.stringify({ session_date: date, session_type: type, questions }),
+    })
+    const data = await res.json()
+    setSubmitting(false)
+    if (!res.ok) { setMsg(data.error || 'Failed'); return }
+    setMsg(`✅ Created! League count: ${data.leagueCount}`)
+    setSessions(prev => [{ ...data.session, answerCount: 0, quiz_questions: [] }, ...prev])
+    setShowForm(false)
+  }
+
+  async function closeSession(id: string) {
+    await fetch('/api/admin/quiz', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-superadmin-key': SA_QUIZ_KEY },
+      body: JSON.stringify({ session_id: id, status: 'closed' }),
+    })
+    setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'closed' } : s))
+  }
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-4">
+        <SASection title="DAILY QUIZ" />
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="text-[10px] font-semibold px-3 py-1 rounded-full border transition-colors"
+          style={{ color: GOLD, borderColor: GOLD + '44', background: GOLD + '11' }}
+        >
+          {showForm ? 'Cancel' : '+ New Quiz'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-[#111] border border-[#1e1e1e] rounded-2xl p-5 mb-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Date</p>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                className="w-full bg-[#0a0a0a] border border-[#333] focus:border-[#c9a84c] rounded-xl px-3 py-2 text-sm text-white outline-none" />
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest text-zinc-600 mb-1">Session</p>
+              <select value={type} onChange={e => setType(e.target.value)}
+                className="w-full bg-[#0a0a0a] border border-[#333] focus:border-[#c9a84c] rounded-xl px-3 py-2 text-sm text-white outline-none">
+                <option value="morning">Morning</option>
+                <option value="evening">Evening</option>
+              </select>
+            </div>
+          </div>
+
+          {questions.map((q, i) => (
+            <div key={i} className="bg-[#0d0d0d] border border-[#222] rounded-xl p-4 space-y-2">
+              <p className="text-[9px] uppercase tracking-widest font-bold mb-2" style={{ color: GOLD }}>Q{i + 1}</p>
+              <input value={q.question} onChange={e => updateQ(i, 'question', e.target.value)}
+                placeholder="Question"
+                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white outline-none placeholder-zinc-700" />
+              <div className="grid grid-cols-2 gap-2">
+                {(['a', 'b', 'c', 'd'] as const).map(opt => (
+                  <input key={opt} value={(q as Record<string, string>)[`option_${opt}`]}
+                    onChange={e => updateQ(i, `option_${opt}`, e.target.value)}
+                    placeholder={`Option ${opt.toUpperCase()}`}
+                    className="bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-white outline-none placeholder-zinc-700" />
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[9px] text-zinc-600 mb-1">Correct</p>
+                  <select value={q.correct_option} onChange={e => updateQ(i, 'correct_option', e.target.value)}
+                    className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-white outline-none">
+                    <option value="a">A</option>
+                    <option value="b">B</option>
+                    <option value="c">C</option>
+                    <option value="d">D</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-zinc-600 mb-1">Category</p>
+                  <input value={q.category} onChange={e => updateQ(i, 'category', e.target.value)}
+                    placeholder="general"
+                    className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-white outline-none placeholder-zinc-700" />
+                </div>
+              </div>
+              <input value={q.explanation} onChange={e => updateQ(i, 'explanation', e.target.value)}
+                placeholder="Explanation (optional)"
+                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-white outline-none placeholder-zinc-700" />
+            </div>
+          ))}
+
+          {msg && <p className={`text-xs ${msg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>{msg}</p>}
+
+          <button onClick={handleCreate} disabled={submitting}
+            className="w-full py-3 rounded-xl text-black font-bold text-sm disabled:opacity-50"
+            style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c96d)` }}>
+            {submitting ? 'Creating…' : 'Create Quiz Session'}
+          </button>
+        </div>
+      )}
+
+      {loadingQ ? (
+        <div className="flex justify-center py-6">
+          <div className="w-4 h-4 border border-[#c9a84c] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : sessions.length === 0 ? (
+        <p className="text-zinc-700 text-sm text-center py-6">No quiz sessions yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {sessions.map(s => (
+            <div key={s.id} className="bg-[#111] border border-[#1e1e1e] rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-white">{s.session_date}</span>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase"
+                    style={{ color: GOLD, background: GOLD + '18', border: `1px solid ${GOLD}44` }}>
+                    {s.session_type}
+                  </span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full border ${s.status === 'active' ? 'text-green-400 border-green-500/30 bg-green-500/10' : 'text-zinc-600 border-zinc-700 bg-zinc-800/30'}`}>
+                    {s.status}
+                  </span>
+                </div>
+                <p className="text-[10px] text-zinc-700 mt-0.5">{s.quiz_questions?.length ?? 0} questions · {s.answerCount} answers</p>
+              </div>
+              {s.status === 'active' && (
+                <button onClick={() => closeSession(s.id)}
+                  className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-300 border border-[#333] px-2 py-0.5 rounded-full transition-colors shrink-0">
+                  Close
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

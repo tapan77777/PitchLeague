@@ -14,6 +14,7 @@ import GroupStandings from '@/components/play/GroupStandings'
 import { ShareModal } from '@/components/play/ShareCard'
 import { ShareCardData } from '@/types'
 import { getLeagueShareUrl } from '@/lib/utils'
+import QuizCard from '@/components/play/QuizCard'
 
 interface MatchSocialProof {
   total: number; teamA: number; teamB: number; draw: number
@@ -217,6 +218,12 @@ export default function PlayHomePage({ params }: { params: { slug: string } }) {
             <GroupStandings matches={allGroupMatches} />
           </section>
         )}
+
+        {/* ── Daily Quiz ── */}
+        <section className="mb-7">
+          <SectionHeader title="DAILY QUIZ" />
+          <QuizCard memberId={memberId} leagueId={league.id} />
+        </section>
 
         {/* ── Predict Now ── */}
         <section className="mb-8">
