@@ -7,7 +7,7 @@ export async function PATCH(
 ) {
   const { id } = params
   const body = await req.json()
-  const { name, welcome_message, primary_color, accent_color, logo_url, reward_message } = body
+  const { name, welcome_message, primary_color, accent_color, logo_url, reward_message, featured_rank } = body
 
   if (name !== undefined && name.trim().length < 3) {
     return NextResponse.json({ error: 'League name must be at least 3 characters' }, { status: 400 })
@@ -22,6 +22,7 @@ export async function PATCH(
   if (accent_color !== undefined) updates.accent_color = accent_color
   if (logo_url !== undefined) updates.logo_url = logo_url || null
   if (reward_message !== undefined) updates.reward_message = reward_message || null
+  if (featured_rank !== undefined) updates.featured_rank = featured_rank === null ? null : Number(featured_rank)
 
   const { data: league, error } = await supabase
     .from('leagues')

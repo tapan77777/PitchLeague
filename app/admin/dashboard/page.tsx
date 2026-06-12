@@ -74,9 +74,12 @@ function DashboardContent() {
       }
       if (!league) { setError('no_league'); setLoading(false); return }
 
-      // Access control — verify this device created the league
+      // Access control — verify this device created the league (superadmin bypass)
       const memberId = getOrCreateMemberId()
-      if (league.admin_clerk_id && memberId && league.admin_clerk_id !== memberId) {
+      const isSuperAdmin = searchParams.get('superadmin') === 'true' &&
+        typeof window !== 'undefined' &&
+        localStorage.getItem('pitchleague_superadmin') === 'yes'
+      if (league.admin_clerk_id && memberId && league.admin_clerk_id !== memberId && !isSuperAdmin) {
         setAccessDeniedSlug(league.slug)
         setError('access_denied')
         setLoading(false)

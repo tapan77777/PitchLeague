@@ -28,7 +28,9 @@ function needsResult(match: Match): boolean {
 
 /* ─── types ─── */
 interface Stats { leagues: number; members: number; predictions: number; finished: number; total: number }
-interface LeagueRow extends League { memberCount: number }
+interface LeagueRow extends League { memberCount: number; featured_rank?: number | null }
+
+const FEAT_COLORS: Record<number, string> = { 1: '#c9a84c', 2: '#aaaaaa', 3: '#cd7f32' }
 interface ExpandedLeague {
   top3: { display_name: string; total_points: number }[]
   totalPreds: number
@@ -227,21 +229,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                             {league.name.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-white">{league.name}</p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold truncate text-white">{league.name}</p>
+                              {league.featured_rank && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                                  style={{ color: FEAT_COLORS[league.featured_rank] ?? GOLD, background: (FEAT_COLORS[league.featured_rank] ?? GOLD) + '18', border: `1px solid ${(FEAT_COLORS[league.featured_rank] ?? GOLD)}44` }}>
+                                  ★ #{league.featured_rank}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-zinc-600">/{league.slug}</p>
                           </div>
                           <div className="text-right shrink-0 mr-2">
                             <p className="text-sm font-bold" style={{ color: GOLD }}>{league.memberCount}</p>
                             <p className="text-[9px] text-zinc-700 uppercase tracking-wider">members</p>
                           </div>
-                          <div className="text-[10px] text-zinc-600 shrink-0 hidden sm:block">
-                            {new Date(league.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a href={`/league/${league.slug}`} target="_blank" rel="noopener noreferrer"
-                              className="text-[10px] text-zinc-600 hover:text-[#c9a84c] border border-[#222] px-2 py-0.5 rounded-full transition-colors"
+                          <div className="flex items-center gap-2 shrink-0" onClick={e => e.stopPropagation()}>
+                            <FeaturedRankSelect
+                              leagueId={league.id}
+                              currentRank={league.featured_rank ?? null}
+                              onSaved={(rank) => setLeagues(prev => prev.map(l => l.id === league.id ? { ...l, featured_rank: rank } : l))}
+                            />
+                            <a href={`/admin/dashboard?league=${league.slug}&superadmin=true`}
+                              className="text-[10px] font-semibold text-[#c9a84c] border border-[#c9a84c44] bg-[#c9a84c11] px-2 py-0.5 rounded-full transition-colors hover:bg-[#c9a84c22] whitespace-nowrap"
                               onClick={e => e.stopPropagation()}>
-                              View ↗
+                              Manage →
                             </a>
                             {expandedLeague === league.id ? <ChevronUp size={14} className="text-zinc-600" /> : <ChevronDown size={14} className="text-zinc-600" />}
                           </div>
@@ -310,6 +322,42 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
     </div>
+  )
+}
+
+/* ─── Featured Rank Select ─── */
+function FeaturedRankSelect({ leagueId, currentRank, onSaved }: {
+  leagueId: string
+  currentRank: number | null
+  onSaved: (rank: number | null) => void
+}) {
+  const [saving, setSaving] = useState(false)
+
+  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const val = e.target.value
+    const newRank = val === '' ? null : Number(val)
+    setSaving(true)
+    await fetch(`/api/leagues/${leagueId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featured_rank: newRank }),
+    })
+    onSaved(newRank)
+    setSaving(false)
+  }
+
+  return (
+    <select
+      value={currentRank ?? ''}
+      onChange={handleChange}
+      disabled={saving}
+      className="text-[10px] bg-[#1a1a1a] border border-[#2a2a2a] rounded-full px-2 py-0.5 text-zinc-500 outline-none cursor-pointer disabled:opacity-50"
+      style={{ minWidth: 90 }}
+    >
+      <option value="">Not Featured</option>
+      <option value="1">★ #1 Gold</option>
+      <option value="2">★ #2 Silver</option>
+      <option value="3">★ #3 Bronze</option>
+    </select>
   )
 }
 

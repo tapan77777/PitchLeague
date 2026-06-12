@@ -28,7 +28,10 @@ interface LiveLeague {
   primary_color: string
   is_public: boolean
   memberCount: number
+  featured_rank?: number | null
 }
+
+const FEAT_COLORS: Record<number, string> = { 1: '#c9a84c', 2: '#aaaaaa', 3: '#cd7f32' }
 
 const FLAG_EMOJIS: Record<string, string> = {
   'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'South Korea': '🇰🇷', 'Czechia': '🇨🇿',
@@ -72,11 +75,12 @@ export default function LandingPage() {
         predictions: predRes.count ?? 0,
       })
 
-      // Fetch live leagues with member counts (all active, regardless of is_public)
+      // Fetch live leagues with member counts (all active, featured first)
       const { data: leaguesData, error: leaguesError } = await supabase
         .from('leagues')
-        .select('id, name, slug, logo_url, primary_color, is_public')
+        .select('id, name, slug, logo_url, primary_color, is_public, featured_rank')
         .eq('is_active', true)
+        .order('featured_rank', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(6)
 
@@ -355,43 +359,71 @@ export default function LandingPage() {
               {liveLeagues.map((league) => {
                 const color = league.primary_color || '#c9a84c'
                 const initial = league.name.charAt(0).toUpperCase()
+                const featRank = league.featured_rank
+                const featColor = featRank ? (FEAT_COLORS[featRank] ?? color) : null
+                const isFeatured = !!featRank
+
                 return (
                   <div
                     key={league.id}
                     style={{
-                      background: '#111',
-                      border: '1px solid #1a1a1a',
+                      background: isFeatured ? '#141414' : '#111',
+                      border: isFeatured ? `1px solid ${featColor}55` : '1px solid #1a1a1a',
                       borderRadius: 14,
-                      padding: '14px 16px',
+                      padding: isFeatured ? '16px 16px' : '14px 16px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 12,
                       opacity: league.is_public === false ? 0.4 : 1,
+                      position: 'relative',
                     }}
                   >
+                    {/* Featured badge */}
+                    {isFeatured && (
+                      <span style={{
+                        position: 'absolute', top: 10, right: 12,
+                        fontFamily: "'Arial', sans-serif", fontSize: 9, fontWeight: 900,
+                        color: featColor!, letterSpacing: '0.12em',
+                        background: `${featColor}18`,
+                        border: `1px solid ${featColor}44`,
+                        borderRadius: 999, padding: '2px 8px',
+                      }}>
+                        ★ FEATURED
+                      </span>
+                    )}
+
                     {/* Avatar */}
                     <div style={{
-                      width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                      width: isFeatured ? 52 : 48,
+                      height: isFeatured ? 52 : 48,
+                      borderRadius: '50%', flexShrink: 0,
                       background: `${color}26`,
-                      border: `2px solid ${color}`,
+                      border: `2px solid ${isFeatured ? featColor! : color}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontFamily: "'Arial Black', Arial, sans-serif",
-                      fontSize: 20, fontWeight: 900, color,
+                      fontSize: isFeatured ? 22 : 20, fontWeight: 900, color,
                     }}>
                       {initial}
                     </div>
 
                     {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, paddingRight: isFeatured ? 70 : 0 }}>
                       <div style={{
-                        fontFamily: "'Arial', sans-serif", fontSize: 15, fontWeight: 900,
+                        fontFamily: "'Arial', sans-serif",
+                        fontSize: isFeatured ? 16 : 15,
+                        fontWeight: 900,
                         color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        marginBottom: 3,
+                        marginBottom: 4,
                       }}>
                         {league.name}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 10, color: '#555' }}>
+                        <span style={{
+                          fontFamily: "'Arial', sans-serif",
+                          fontSize: isFeatured ? 11 : 10,
+                          fontWeight: isFeatured ? 700 : 400,
+                          color: isFeatured ? '#888' : '#555',
+                        }}>
                           {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}
                         </span>
                         <span style={{ color: '#333', fontSize: 10 }}>·</span>

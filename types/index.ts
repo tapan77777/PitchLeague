@@ -24,6 +24,7 @@ export interface League {
   created_at: string
   updated_at: string
   reward_message?: string
+  featured_rank?: number | null
   // Joined fields
   member_count?: number
 }
