@@ -20,6 +20,16 @@ interface SiteStats {
   predictions: number
 }
 
+interface LiveLeague {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  primary_color: string
+  is_public: boolean
+  memberCount: number
+}
+
 const FLAG_EMOJIS: Record<string, string> = {
   'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'South Korea': '🇰🇷', 'Czechia': '🇨🇿',
   'Canada': '🇨🇦', 'Qatar': '🇶🇦', 'Switzerland': '🇨🇭', 'Brazil': '🇧🇷',
@@ -44,6 +54,7 @@ function formatTickerDate(iso: string) {
 export default function LandingPage() {
   const [matches, setMatches] = useState<Match[]>([])
   const [stats, setStats] = useState<SiteStats>({ leagues: 0, members: 0, predictions: 0 })
+  const [liveLeagues, setLiveLeagues] = useState<LiveLeague[]>([])
 
   useEffect(() => {
     async function load() {
@@ -60,6 +71,28 @@ export default function LandingPage() {
         members: memberRes.count ?? 0,
         predictions: predRes.count ?? 0,
       })
+
+      // Fetch live leagues with member counts (all active, regardless of is_public)
+      const { data: leaguesData, error: leaguesError } = await supabase
+        .from('leagues')
+        .select('id, name, slug, logo_url, primary_color, is_public')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(6)
+
+      console.log('[LiveLeagues] fetch result:', leaguesData, 'error:', leaguesError)
+
+      const withCounts = await Promise.all(
+        (leaguesData ?? []).map(async (l) => {
+          const { count } = await supabase
+            .from('league_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('league_id', l.id)
+          return { ...l, memberCount: count ?? 0 } as LiveLeague
+        })
+      )
+      console.log('[LiveLeagues] with counts:', withCounts)
+      setLiveLeagues(withCounts)
     }
     load()
   }, [])
@@ -289,7 +322,135 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════════
-          7. SOCIAL PROOF / STATS
+          7. LIVE LEAGUES
+      ══════════════════════════════════════ */}
+      <section className="px-5 py-20">
+        <div className="max-w-2xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#e74c3c', flexShrink: 0 }} />
+                <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 10, fontWeight: 700, color: '#e74c3c', letterSpacing: '0.3em', textTransform: 'uppercase' }}>
+                  LIVE NOW
+                </span>
+              </div>
+              <h2 className="bebas text-4xl sm:text-5xl text-white leading-none mb-2">ACTIVE LEAGUES</h2>
+              <p style={{ fontFamily: "'Arial', sans-serif", fontSize: 13, color: '#555' }}>
+                Join a league and start predicting today
+              </p>
+            </div>
+
+            {/* League cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {liveLeagues.length === 0 && (
+                <div style={{
+                  background: '#111', border: '1px solid #1a1a1a', borderRadius: 14,
+                  padding: '28px 20px', textAlign: 'center',
+                }}>
+                  <p style={{ fontFamily: "'Arial', sans-serif", fontSize: 13, color: '#444' }}>
+                    No active leagues yet. Be the first to create one!
+                  </p>
+                </div>
+              )}
+              {liveLeagues.map((league) => {
+                const color = league.primary_color || '#c9a84c'
+                const initial = league.name.charAt(0).toUpperCase()
+                return (
+                  <div
+                    key={league.id}
+                    style={{
+                      background: '#111',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: 14,
+                      padding: '14px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      opacity: league.is_public === false ? 0.4 : 1,
+                    }}
+                  >
+                    {/* Avatar */}
+                    <div style={{
+                      width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                      background: `${color}26`,
+                      border: `2px solid ${color}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontFamily: "'Arial Black', Arial, sans-serif",
+                      fontSize: 20, fontWeight: 900, color,
+                    }}>
+                      {initial}
+                    </div>
+
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: "'Arial', sans-serif", fontSize: 15, fontWeight: 900,
+                        color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        marginBottom: 3,
+                      }}>
+                        {league.name}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 10, color: '#555' }}>
+                          {league.memberCount} {league.memberCount === 1 ? 'member' : 'members'}
+                        </span>
+                        <span style={{ color: '#333', fontSize: 10 }}>·</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2dc653', display: 'inline-block' }} />
+                          <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 10, color: '#2dc653' }}>Active</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Join or Private */}
+                    {league.is_public === false ? (
+                      <span style={{ fontFamily: "'Arial', sans-serif", fontSize: 11, color: '#444', flexShrink: 0 }}>
+                        Private
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/league/${league.slug}`}
+                        style={{
+                          display: 'inline-block', flexShrink: 0,
+                          background: 'linear-gradient(135deg, #c9a84c 0%, #e8c96d 100%)',
+                          color: '#000', fontFamily: "'Arial', sans-serif",
+                          fontSize: 11, fontWeight: 900,
+                          borderRadius: 20, padding: '8px 14px',
+                          textDecoration: 'none', letterSpacing: '0.04em',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        JOIN →
+                      </Link>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Create CTA */}
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontFamily: "'Arial', sans-serif", fontSize: 11, color: '#444', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 12 }}>
+                WANT YOUR OWN LEAGUE?
+              </p>
+              <Link
+                href="/create"
+                style={{
+                  display: 'inline-block',
+                  border: '1px solid #c9a84c', borderRadius: 999,
+                  padding: '10px 24px', background: 'transparent',
+                  fontFamily: "'Arial', sans-serif", fontSize: 13, fontWeight: 700,
+                  color: '#c9a84c', textDecoration: 'none', letterSpacing: '0.06em',
+                }}
+              >
+                CREATE YOUR LEAGUE FREE →
+              </Link>
+            </div>
+          </div>
+        </section>
+
+      {/* ══════════════════════════════════════
+          8. SOCIAL PROOF / STATS
       ══════════════════════════════════════ */}
       <section className="px-5 py-24 max-w-5xl mx-auto">
         <div className="text-center mb-10">

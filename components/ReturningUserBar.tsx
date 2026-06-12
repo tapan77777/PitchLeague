@@ -6,49 +6,76 @@ import { getAllSessions } from '@/lib/member'
 import { getAdminLeagues } from '@/lib/admin'
 
 export default function ReturningUserBar() {
-  const [adminLeagues, setAdminLeagues] = useState<{ slug: string; name: string }[]>([])
-  const [memberLeagues, setMemberLeagues] = useState<{ slug: string }[]>([])
+  const [adminLeague, setAdminLeague] = useState<{ slug: string; name: string } | null>(null)
+  const [memberSlug, setMemberSlug] = useState<string | null>(null)
 
   useEffect(() => {
-    setAdminLeagues(getAdminLeagues())
+    const admins = getAdminLeagues()
+    if (admins.length > 0) setAdminLeague(admins[0])
+
     const sessions = getAllSessions()
     if (sessions?.leagues) {
-      setMemberLeagues(Object.keys(sessions.leagues).map(slug => ({ slug })))
+      const entries = Object.entries(sessions.leagues)
+      if (entries.length > 0) {
+        // pick most recently joined
+        const sorted = entries.sort((a, b) =>
+          new Date(b[1].joined_at).getTime() - new Date(a[1].joined_at).getTime()
+        )
+        setMemberSlug(sorted[0][0])
+      }
     }
   }, [])
 
-  if (adminLeagues.length === 0 && memberLeagues.length === 0) return null
+  if (!adminLeague && !memberSlug) return null
 
   return (
-    <div className="border-b border-zinc-900 bg-zinc-950/80 px-5 py-2.5">
-      <div className="max-w-5xl mx-auto flex flex-wrap items-center gap-2">
-        {adminLeagues.length > 0 && (
-          <>
-            <span className="text-zinc-600 text-xs shrink-0">🏆 Your league:</span>
-            {adminLeagues.map(l => (
-              <Link
-                key={l.slug}
-                href={`/admin/dashboard?league=${l.slug}`}
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors"
-              >
-                {l.name} →
-              </Link>
-            ))}
-          </>
+    <div style={{
+      borderBottom: '1px solid #141414',
+      background: 'rgba(10,10,10,0.92)',
+      padding: '8px 20px',
+    }}>
+      <div style={{
+        maxWidth: 640,
+        margin: '0 auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        justifyContent: 'center',
+      }}>
+        {memberSlug && (
+          <Link
+            href={`/play/${memberSlug}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 14px', borderRadius: 999,
+              background: 'rgba(201,168,76,0.08)',
+              border: '1px solid rgba(201,168,76,0.2)',
+              color: '#c9a84c',
+              fontSize: 12, fontWeight: 700,
+              textDecoration: 'none', letterSpacing: '0.03em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            ▶ Continue Playing
+          </Link>
         )}
-        {memberLeagues.length > 0 && (
-          <>
-            <span className="text-zinc-600 text-xs shrink-0 ml-2">⚽ Playing in:</span>
-            {memberLeagues.map(l => (
-              <Link
-                key={l.slug}
-                href={`/play/${l.slug}`}
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 hover:border-zinc-500 transition-colors"
-              >
-                Continue →
-              </Link>
-            ))}
-          </>
+        {adminLeague && (
+          <Link
+            href={`/admin/dashboard?league=${adminLeague.slug}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '5px 14px', borderRadius: 999,
+              background: 'rgba(45,198,83,0.07)',
+              border: '1px solid rgba(45,198,83,0.18)',
+              color: '#2dc653',
+              fontSize: 12, fontWeight: 700,
+              textDecoration: 'none', letterSpacing: '0.03em',
+              whiteSpace: 'nowrap',
+              maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+          >
+            ⚙ {adminLeague.name}
+          </Link>
         )}
       </div>
     </div>
