@@ -442,7 +442,7 @@ function DailyQuizSection() {
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
   const [type, setType] = useState('morning')
   const [questions, setQuestions] = useState(
-    Array.from({ length: 3 }, () => ({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', explanation: '', category: 'general' }))
+    Array.from({ length: 2 }, () => ({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_option: 'a', explanation: '', category: 'general' }))
   )
 
   useEffect(() => {

@@ -13,7 +13,7 @@ interface QuizSession {
   session_type: string
   session_date: string
   status: string
-  quiz_questions: QuizQuestion[]
+  questions: QuizQuestion[]
 }
 
 interface CompletedEntry {
@@ -67,6 +67,7 @@ export default function QuizCard({ memberId, leagueId }: { memberId: string; lea
     fetch('/api/quiz/active')
       .then(r => r.json())
       .then(({ session }) => {
+        console.log('Quiz data on home page:', { session })
         setSession(session ?? null)
         if (session) {
           const done = getCompleted(session.id)
@@ -85,7 +86,7 @@ export default function QuizCard({ memberId, leagueId }: { memberId: string; lea
     return () => clearInterval(t)
   }, [session])
 
-  if (!loaded || !session) return null
+  if (!loaded || !session || !session.questions?.length) return null
 
   function handleComplete(score: number, total: number, points: number) {
     const entry = { score, total, points }
@@ -95,14 +96,14 @@ export default function QuizCard({ memberId, leagueId }: { memberId: string; lea
   }
 
   const typeLabel = session.session_type.toUpperCase()
-  const qCount = session.quiz_questions.length
+  const qCount = session.questions.length
 
   return (
     <>
       {modalOpen && (
         <QuizModal
           session={session}
-          questions={session.quiz_questions}
+          questions={session.questions}
           memberId={memberId}
           leagueId={leagueId}
           onComplete={handleComplete}

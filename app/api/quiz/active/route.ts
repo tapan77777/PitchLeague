@@ -1,32 +1,39 @@
-import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { NextResponse } from 'next/server'
 
 export async function GET() {
   const supabase = createServerSupabaseClient()
+
   const today = new Date().toISOString().split('T')[0]
+  console.log('Fetching quiz for date:', today)
 
-  const { data, error } = await supabase
+  const { data: session, error } = await supabase
     .from('quiz_sessions')
-    .select('*, quiz_questions(*)')
-    .eq('session_date', today)
+    .select('*')
     .eq('status', 'active')
-    .order('created_at', { ascending: false })
+    .lte('session_date', today)
+    .order('session_date', { ascending: false })
     .limit(1)
+    .maybeSingle()
 
-  if (error) {
-    console.error('[quiz/active]', error)
+  console.log('Session found:', session, 'Error:', error)
+
+  if (!session) {
     return NextResponse.json({ session: null })
   }
 
-  const session = data?.[0] ?? null
-  if (!session) return NextResponse.json({ session: null })
+  const { data: questions } = await supabase
+    .from('quiz_questions')
+    .select('id, question_number, question, option_a, option_b, option_c, option_d, category')
+    .eq('session_id', session.id)
+    .order('question_number', { ascending: true })
 
-  // Sort questions and strip correct_option before sending to client
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const questions = ((session.quiz_questions as any[]) ?? [])
-    .sort((a, b) => a.question_number - b.question_number)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    .map(({ correct_option, ...q }) => q)
+  console.log('Questions found:', questions?.length)
 
-  return NextResponse.json({ session: { ...session, quiz_questions: questions } })
+  return NextResponse.json({
+    session: {
+      ...session,
+      questions: questions || [],
+    },
+  })
 }
