@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { QRCodeCanvas } from 'qrcode.react'
 import { supabase } from '@/lib/supabase'
 import { getAdminSession, getAdminLeagues, addAdminLeague, clearAdminSession, AdminSession } from '@/lib/admin'
+import { getOrCreateMemberId } from '@/lib/member'
 import { getLeagueThemeVars, getLeagueShareUrl } from '@/lib/utils'
 import { League, LeagueMember } from '@/types'
 import { Copy, Check, ChevronDown, ChevronUp, ArrowLeft, LogOut, Download, Printer, Trash2, Users } from 'lucide-react'
@@ -40,6 +41,7 @@ function DashboardContent() {
   const [data, setData] = useState<PageData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [accessDeniedSlug, setAccessDeniedSlug] = useState('')
 
   useEffect(() => {
     const s = getAdminSession()
@@ -71,6 +73,15 @@ function DashboardContent() {
         }
       }
       if (!league) { setError('no_league'); setLoading(false); return }
+
+      // Access control — verify this device created the league
+      const memberId = getOrCreateMemberId()
+      if (league.admin_clerk_id && memberId && league.admin_clerk_id !== memberId) {
+        setAccessDeniedSlug(league.slug)
+        setError('access_denied')
+        setLoading(false)
+        return
+      }
 
       addAdminLeague({ slug: league.slug, name: league.name, created_at: new Date().toISOString() })
 
@@ -136,6 +147,36 @@ function DashboardContent() {
           className="bg-green-500 text-black font-bold px-5 py-2.5 rounded-full text-sm">
           Create a League
         </button>
+      </div>
+    )
+  }
+
+  if (error === 'access_denied') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', textAlign: 'center' }}>
+        <span style={{ fontSize: 48, marginBottom: 16 }}>🔒</span>
+        <h1 style={{ fontFamily: "'Bebas Neue', 'Impact', sans-serif", fontSize: 32, color: '#e74c3c', letterSpacing: '0.12em', marginBottom: 12 }}>
+          ACCESS DENIED
+        </h1>
+        <p style={{ fontFamily: "'Arial', sans-serif", fontSize: 14, color: '#666', maxWidth: 300, lineHeight: 1.6, marginBottom: 8 }}>
+          This admin panel belongs to a different account.
+        </p>
+        <p style={{ fontFamily: "'Arial', sans-serif", fontSize: 13, color: '#444', maxWidth: 300, lineHeight: 1.6, marginBottom: 28 }}>
+          Are you the league creator? Make sure you&apos;re using the same device you created this league on.
+        </p>
+        <a
+          href={`/league/${accessDeniedSlug}`}
+          style={{
+            display: 'inline-block',
+            background: '#c9a84c', color: '#000',
+            fontFamily: "'Bebas Neue', 'Impact', sans-serif",
+            fontSize: 18, letterSpacing: '0.1em',
+            padding: '12px 28px', borderRadius: 999,
+            textDecoration: 'none',
+          }}
+        >
+          Go to League Page
+        </a>
       </div>
     )
   }
