@@ -334,11 +334,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
 /* ─── Delete League Button ─── */
 function DeleteLeagueButton({ league, onDeleted }: { league: LeagueRow; onDeleted: (id: string) => void }) {
-  const [confirm, setConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState('')
 
-  async function handleDelete() {
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation()
+    const input = prompt(`Type DELETE to confirm removing "${league.name}" and ALL its data:`)
+    if (input !== 'DELETE') {
+      if (input !== null) alert('Cancelled — you must type DELETE exactly')
+      return
+    }
     setDeleting(true)
     const res = await fetch(`/api/admin/leagues/${league.id}`, {
       method: 'DELETE',
@@ -357,29 +362,12 @@ function DeleteLeagueButton({ league, onDeleted }: { league: LeagueRow; onDelete
     return <span className="text-[10px] font-semibold text-red-400 shrink-0">{toast}</span>
   }
 
-  if (confirm) {
-    return (
-      <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-        <span className="text-[9px] text-zinc-500 max-w-[100px] leading-tight hidden sm:block">
-          Delete {league.name}?
-        </span>
-        <button onClick={handleDelete} disabled={deleting}
-          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 disabled:opacity-50 whitespace-nowrap">
-          {deleting ? '…' : 'Yes, delete'}
-        </button>
-        <button onClick={() => setConfirm(false)}
-          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
-          Cancel
-        </button>
-      </div>
-    )
-  }
-
   return (
     <button
-      onClick={e => { e.stopPropagation(); setConfirm(true) }}
-      className="text-[10px] font-semibold text-red-700 hover:text-red-400 border border-red-900/40 hover:border-red-500/40 px-2 py-0.5 rounded-full transition-colors shrink-0">
-      Delete
+      onClick={handleDelete}
+      disabled={deleting}
+      className="text-[10px] font-semibold text-red-700 hover:text-red-400 border border-red-900/40 hover:border-red-500/40 px-2 py-0.5 rounded-full transition-colors shrink-0 disabled:opacity-50">
+      {deleting ? '…' : 'Delete'}
     </button>
   )
 }
@@ -590,7 +578,7 @@ function DailyQuizSection() {
               </div>
               {s.status === 'active' && (
                 <button onClick={() => closeSession(s.id)}
-                  className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-300 border border-[#333] px-2 py-0.5 rounded-full transition-colors shrink-0">
+                  className="text-[10px] font-semibold text-zinc-400 hover:text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-2 py-0.5 rounded-full transition-colors shrink-0">
                   Close
                 </button>
               )}
